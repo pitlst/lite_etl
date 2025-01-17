@@ -9,4 +9,3 @@ redis[hiredis]
 pymongo
 clickhouse-connect
 Plotly
-luigi
