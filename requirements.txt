@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pandas 
+numpy
+cx_oracle
+pymssql
+pymysql
+redis[hiredis]
+pymongo
+clickhouse-connect
+Plotly
+luigi
