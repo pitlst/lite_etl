@@ -9,3 +9,5 @@ redis[hiredis]
 pymongo
 clickhouse-connect
 Plotly
+colorlog
+toml
