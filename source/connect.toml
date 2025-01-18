@@ -1,0 +1,166 @@
+# 连接配置文件
+
+["数据处理服务存储"]
+# 注意，由于mongo存储日志，所以其在连接池中比较特殊
+type = "mongo"
+ip = "10.24.5.57"
+port = 27017
+user = ""
+password = ""
+
+["外网访客系统数据库"]
+# 注意，该数据库仅能在10.24.5.54访问得到
+type = "mongo"
+ip = "18.0.163.64"
+port = 10086
+user = ""
+password = ""
+
+["clickhouse"]
+type = "clickhouse"
+ip = "10.24.5.56"
+port = 8123
+user = 'default'
+password = '1'
+database = 'default'
+
+["redis同步数据存储"]
+type = "redis"
+ip = "10.24.5.58"
+port = 3306
+database = 0
+
+["redis消息队列"]
+type = "redis"
+ip = "10.24.5.58"
+port = 3306
+database = 1
+
+["BI与数开用数据库"]
+type = "mysql"
+ip = "10.24.5.32"
+port = 3306
+user = "cheakf"
+password = "Swq8855830."
+mode = "dataframe_flow_v2"
+
+["BI与数开用数据库_旧"]
+type = "mysql"
+ip = "10.24.5.32"
+port = 3306
+user = "cheakf"
+password = "Swq8855830."
+mode = "dataframe_flow"
+
+["BI与数开用数据库_供应商"]
+type = "mysql"
+ip = "10.24.5.32"
+port = 3306
+user = "cheakf"
+password = "Swq8855830."
+mode = "supplier_use"
+
+[EAS]
+type = "oracle"
+ip = "172.18.1.121"
+port = 1521
+user = "easselect"
+password = "easselect"
+mode = "eas"
+
+[MES]
+type = "oracle"
+ip = "10.24.212.17"
+port = 1521
+user = "unimax_cg"
+password = "unimax_cg"
+mode = "ORCL"
+
+[SHR]
+type = "oracle"
+ip = "10.24.204.67"
+port = 1521
+user = "shr_query"
+password = "shr_queryZj123!"
+mode = "ORCL"
+
+["生产辅助系统"]
+type = "sqlserver"
+ip = "10.24.5.154"
+port = 1433
+user = "metro"
+password = "Metro2023!"
+mode = "城轨事业部"
+
+["生产辅助系统-中转"]
+type = "sqlserver"
+ip = "10.24.5.154"
+port = 1433
+user = "metro"
+password = "Metro2023!"
+mode = "crrc_temp"
+
+["金蝶云苍穹-测试库"]
+type = "mysql"
+ip ="10.24.204.37"
+port = 3306
+user = "kingdee"
+password = "kingdee2020"
+mode = "crrc_phm"
+
+["金蝶云苍穹-正式库"]
+type = "mysql"
+ip = "10.24.206.138"
+port = 3306
+user = "cosmic"
+password = "Mysql@2022!"
+mode = "crrc_secd"
+
+["金蝶云苍穹-正式库-系统"]
+type = "mysql"
+ip = "10.24.206.138"
+port = 3306
+user = "cosmic"
+password = "Mysql@2022!"
+mode = "crrc_sys"
+
+["机车数据库"]
+type = "mysql"
+ip = "10.29.31.159"
+port = 3306
+user = "crrc_temp"
+password = "ETxkrRpCFDZ4LmMr"
+mode = "crrc_temp"
+
+["智能立库"]
+type = "mysql"
+ip = "10.24.5.21"
+port = 3307
+user = "root"
+password = "jftxAdmin"
+mode = "smart_warehouse"
+
+["考勤系统"]
+type = "sqlserver"
+ip = "10.24.7.48"
+port = 1433
+user = "sa"
+password = "Z@hc#8705!$"
+mode = "GM_MT_70"
+
+["数据运用平台-测试库"]
+type = "mysql"
+ip = "10.24.7.145"
+port = 3316
+user = "zjuser"
+password = "zjuser@123"
+mode = "zj_data"
+
+["数据运用平台-正式库"]
+type = "mysql"
+ip = "10.24.207.80"
+port = 8082
+user = "root"
+password = "WnXPLOS8ch"
+mode = "zj_data"
+

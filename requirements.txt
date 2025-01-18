@@ -11,3 +11,5 @@ clickhouse-connect
 Plotly
 colorlog
 toml
+sqlalchemy
+sqlglot[rs]
