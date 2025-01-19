@@ -1,11 +1,12 @@
+import asyncio
 import time
-import multiprocessing as mp
+from abc import ABC, abstractmethod
 from typing import Callable
 
 from utils import LOGGER_QUEUE
 
 # 所有任务的抽象
-class task:
+class task(ABC):
     def __init__(self, name: str) -> None:
         self.name = name
         self.next = []
@@ -15,15 +16,16 @@ class task:
         self.next.append(name)
         return self
     
-    def set(self, func: Callable):
-        self.func = func
-        return self
+    @abstractmethod
+    async def task_main(self):
+        ...
     
-    def run(self):
+    async def run(self):
         # 真正运行函数的地方
         start_time = time.time()
-        if not self.func is None:
-            self.func()
+        if self.func is None:
+            raise ValueError("没有对应的执行函数")
+        await self.task_main()
         end_time = time.time()
         spend_time = (end_time - start_time)/60
         LOGGER_QUEUE.put({
