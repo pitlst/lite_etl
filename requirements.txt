@@ -13,3 +13,4 @@ colorlog
 toml
 sqlalchemy
 sqlglot[rs]
+aiofiles
