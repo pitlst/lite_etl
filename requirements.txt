@@ -11,6 +11,8 @@ clickhouse-connect
 Plotly
 colorlog
 toml
-sqlalchemy
+sqlalchemy[asyncio]
 sqlglot[rs]
 aiofiles
+aioredis
+motor

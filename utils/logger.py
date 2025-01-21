@@ -1,22 +1,16 @@
 import datetime
 import logging
 import colorlog
-from pymongo.database import Database
+from sqlglot import exp
 from utils import EXECUTER
 
 class momgo_handler(logging.Handler):
     '''将日志写道mongo数据库的自定义handler'''
-    async def __init__(self, name: str) -> None:
+    def __init__(self, name: str) -> None:
         logging.Handler.__init__(self)
-        database: Database = await EXECUTER.get_client(["数据处理服务存储"])["logger"]
-        time_series_options = {
-            "timeField": "timestamp",
-            "metaField": "message"
-        }
-        if name not in database.list_collection_names():
-            self.collection = database.create_collection(name, timeseries=time_series_options, expireAfterSeconds=604800)
-        else:
-            self.collection = database[name]
+        self.name = name
+        self.columns = ["log_time", "level", "msg"]
+        self.client = EXECUTER.get_client(["clickhouse日志"])
 
     def emit(self, record) -> None:
         try:
@@ -24,18 +18,20 @@ class momgo_handler(logging.Handler):
             temp_msg = msg.split(":")
             level = temp_msg[0]
             msg = ":".join(temp_msg[1:])
-            self.collection.insert_one({
-                "timestamp": datetime.datetime.now(),
-                "message": {
-                    "等级": level,
-                    "消息": msg
-                }
-            })
+            data = {"log_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "level": level, "msg": msg}
+            values = [exp.Literal.number(data[col]) if isinstance(data[col], int) else exp.Literal.string(data[col]) for col in self.columns]
+            insert = exp.Insert(
+                this=exp.Table(this=self.name),
+                expressions=[exp.Tuple(expressions=values)],
+                columns=[exp.Identifier(this=col) for col in self.columns]
+            )
+            with self.client.connect() as connection:
+                connection.execute(insert.sql())
         except Exception:
             self.handleError(record)
 
 
-async def make_logger(logger_name: str)-> logging.Logger:
+def make_logger(logger_name: str)-> logging.Logger:
     '''生成日志的工厂方法'''
     temp_log = logging.getLogger(logger_name)
     temp_log.setLevel(logging.DEBUG)
