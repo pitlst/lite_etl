@@ -42,7 +42,7 @@ class executer:
                         url = "mongodb://" + temp["ip"] + ":" + str(temp["port"])
                     return pymongo.MongoClient(url)
                 elif temp["type"] == "redis":
-                    return redis.Redis(host=temp["ip"], port=temp["port"], db=temp["database"], decode_responses=True)
+                    return redis.Redis(host=temp["ip"], port=temp["port"], db=temp["database"], decode_responses=True, charset='UTF-8', encoding='UTF-8')
                 elif temp["type"] == "clickhouse":
                     connect_str = "clickhouse+asynch://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["database"]
                     return sqlalchemy.create_engine(connect_str, poolclass=sqlalchemy.QueuePool, pool_size=10, max_overflow=5, pool_timeout=30, pool_recycle=3600)

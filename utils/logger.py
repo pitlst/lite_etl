@@ -4,7 +4,7 @@ import colorlog
 from sqlglot import exp
 from utils import EXECUTER
 
-class momgo_handler(logging.Handler):
+class clickhouse_handler(logging.Handler):
     '''将日志写道mongo数据库的自定义handler'''
     def __init__(self, name: str) -> None:
         logging.Handler.__init__(self)
@@ -50,7 +50,7 @@ def make_logger(logger_name: str)-> logging.Logger:
             datefmt='## %Y-%m-%d %H:%M:%S'
         ))
     temp_log.addHandler(console)
-    mongoio = momgo_handler(logger_name)
+    mongoio = clickhouse_handler(logger_name)
     mongoio.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(levelname)s:%(message)s')
     mongoio.setFormatter(formatter)

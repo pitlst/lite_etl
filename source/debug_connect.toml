@@ -10,15 +10,23 @@ password = ""
 
 ["clickhouse"]
 type = "clickhouse"
-ip = "10.24.5.56"
+ip = "localhost"
 port = 8123
 user = 'default'
 password = '1'
 database = 'default'
 
+["clickhouse日志"]
+type = "clickhouse"
+ip = "localhost"
+port = 8123
+user = 'default'
+password = '1'
+database = 'logger'
+
 ["BI与数开用数据库"]
 type = "mysql"
-ip = "10.24.5.32"
+ip = "localhost"
 port = 3306
 user = "cheakf"
 password = "Swq8855830."
