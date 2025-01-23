@@ -10,7 +10,8 @@ class clickhouse_handler(logging.Handler):
         logging.Handler.__init__(self)
         self.name = name
         self.columns = ["log_time", "level", "msg"]
-        self.client = EXECUTER.get_client(["clickhouse日志"])
+        self.client = EXECUTER.get_client("clickhouse日志")
+        # 检查表是否存在
 
     def emit(self, record) -> None:
         try:

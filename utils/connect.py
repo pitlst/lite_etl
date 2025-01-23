@@ -3,8 +3,6 @@ import redis
 import pymongo
 import sqlalchemy
 from urllib.parse import quote_plus
-
-import sqlalchemy.ext.asyncio
 from utils import CONNECT_CONFIG
 
 class executer:
@@ -14,6 +12,7 @@ class executer:
             self.connect[ch] = self.make_client(ch)
         self.reconnect_time = time.time()
 
+    @staticmethod
     def make_client(name: str):
         '''
         创建数据连接的工厂类
@@ -44,7 +43,7 @@ class executer:
                 elif temp["type"] == "redis":
                     return redis.Redis(host=temp["ip"], port=temp["port"], db=temp["database"], decode_responses=True, charset='UTF-8', encoding='UTF-8')
                 elif temp["type"] == "clickhouse":
-                    connect_str = "clickhouse+asynch://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["database"]
+                    connect_str = "clickhouse://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["database"]
                     return sqlalchemy.create_engine(connect_str, poolclass=sqlalchemy.QueuePool, pool_size=10, max_overflow=5, pool_timeout=30, pool_recycle=3600)
                 else:
                     raise ValueError("不支持的数据库类型：" + temp["type"])
@@ -57,4 +56,3 @@ class executer:
             self.reconnect_time = time.time() + 60 * 60 * 3
         return self.connect[name]
     
-EXECUTER = executer()

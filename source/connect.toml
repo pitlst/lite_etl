@@ -8,6 +8,14 @@ port = 10086
 user = ""
 password = ""
 
+["redis上下文与通信"]
+type = "redis"
+ip = "10.24.5.57"
+port = 8123
+user = 'default'
+password = '1'
+database = 'default'
+
 ["clickhouse"]
 type = "clickhouse"
 ip = "10.24.5.56"
@@ -15,6 +23,14 @@ port = 8123
 user = 'default'
 password = '1'
 database = 'default'
+
+["clickhouse日志"]
+type = "clickhouse"
+ip = "10.24.5.56"
+port = 8123
+user = 'default'
+password = '1'
+database = 'logger'
 
 ["BI与数开用数据库"]
 type = "mysql"

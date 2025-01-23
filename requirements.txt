@@ -16,3 +16,5 @@ sqlglot[rs]
 aiofiles
 aioredis
 motor
+pyodbc
+mysqlclient
