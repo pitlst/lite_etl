@@ -13,8 +13,5 @@ colorlog
 toml
 sqlalchemy[asyncio]
 sqlglot[rs]
-aiofiles
-aioredis
-motor
 pyodbc
 mysqlclient

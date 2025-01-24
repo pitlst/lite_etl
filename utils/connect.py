@@ -1,9 +1,11 @@
+import os
 import time
 import redis
+import duckdb
 import pymongo
 import sqlalchemy
 from urllib.parse import quote_plus
-from utils import CONNECT_CONFIG
+from utils import CONNECT_CONFIG, LOCAL_DB_PATH
 
 class executer:
     def __init__(self) -> None:
@@ -23,16 +25,16 @@ class executer:
             if ch == name:
                 temp = CONNECT_CONFIG[ch]
                 if temp["type"] == "oracle":
-                    connect_str = "oracle+cx_oracle://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/?service_name=" + temp["mode"]
+                    connect_str = "oracle+cx_oracle://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/?service_name=" + temp["database"]
                     return sqlalchemy.create_engine(connect_str, poolclass=sqlalchemy.QueuePool, pool_size=10, max_overflow=5, pool_timeout=30, pool_recycle=3600)
                 elif temp["type"] == "sqlserver":
-                    connect_str = "mssql+pyodbc://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["mode"] + "?driver=ODBC+Driver+17+for+SQL+Server"
+                    connect_str = "mssql+pyodbc://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["database"] + "?driver=ODBC+Driver+17+for+SQL+Server"
                     return sqlalchemy.create_engine(connect_str, poolclass=sqlalchemy.QueuePool, pool_size=10, max_overflow=5, pool_timeout=30, pool_recycle=3600)
                 elif temp["type"] == "mysql":
-                    connect_str = "mysql+mysqldb://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["mode"]
+                    connect_str = "mysql+mysqldb://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["database"]
                     return sqlalchemy.create_engine(connect_str, poolclass=sqlalchemy.QueuePool, pool_size=10, max_overflow=5, pool_timeout=30, pool_recycle=3600)
                 elif temp["type"] == "pgsql":
-                    connect_str = "postgresql://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["mode"]
+                    connect_str = "postgresql://" + temp["user"] + ":" + quote_plus(temp["password"]) + "@" + temp["ip"] + ":" + str(temp["port"]) + "/" + temp["database"]
                     return sqlalchemy.create_engine(connect_str, poolclass=sqlalchemy.QueuePool, pool_size=10, max_overflow=5, pool_timeout=30, pool_recycle=3600)
                 elif temp["type"] == "mongo":
                     if temp["user"] != "" and temp["password"] != "":
@@ -49,10 +51,7 @@ class executer:
                     raise ValueError("不支持的数据库类型：" + temp["type"])
                 
     def get_client(self, name: str):
-        # 每超过三小时全部重连一次，用于防止长连接问题
-        if time.time() > self.reconnect_time + 60 * 60 * 3:
-            for ch in CONNECT_CONFIG:
-                self.connect[ch] = self.make_client(ch)
-            self.reconnect_time = time.time() + 60 * 60 * 3
         return self.connect[name]
     
+    
+local_db = duckdb.connect(os.path.join(LOCAL_DB_PATH, "data.db"))

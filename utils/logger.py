@@ -1,33 +1,47 @@
-import datetime
+import os
 import logging
 import colorlog
-from sqlglot import exp
-from utils import EXECUTER
+import duckdb
+from utils import LOCAL_DB_PATH
 
-class clickhouse_handler(logging.Handler):
+class duckdb_handler(logging.Handler):
     '''将日志写道mongo数据库的自定义handler'''
+    columns = ["log_time", "level", "msg"]
     def __init__(self, name: str) -> None:
         logging.Handler.__init__(self)
         self.name = name
-        self.columns = ["log_time", "level", "msg"]
-        self.client = EXECUTER.get_client("clickhouse日志")
-        # 检查表是否存在
+        self.connect = duckdb.connect(os.path.join(LOCAL_DB_PATH, "logger.db"))
+        # 检查对应的表格是否创建
+        exists = self.connect.execute(
+            f"""
+            SELECT EXISTS(
+                SELECT 1 
+                FROM information_schema.tables 
+                WHERE table_schema = 'main' AND table_name = '{self.name}'
+            )
+            """
+        ).fetchone()[0]
+        if not exists:
+            # 指定创建时间为默认时间戳，id自动生成
+            self.connect.execute(
+                f"""
+                CREATE OR REPLACE TABLE {self.name} (
+                    {self.columns[0]} TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+                    {self.columns[1]} VARCHAR, 
+                    {self.columns[2]} VARCHAR
+                )
+                """
+            )
+        
+    def __del__(self):
+        self.connect.close()
 
     def emit(self, record) -> None:
         try:
-            msg = self.format(record)
-            temp_msg = msg.split(":")
+            temp_msg = self.format(record).split(":")
             level = temp_msg[0]
             msg = ":".join(temp_msg[1:])
-            data = {"log_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "level": level, "msg": msg}
-            values = [exp.Literal.number(data[col]) if isinstance(data[col], int) else exp.Literal.string(data[col]) for col in self.columns]
-            insert = exp.Insert(
-                this=exp.Table(this=self.name),
-                expressions=[exp.Tuple(expressions=values)],
-                columns=[exp.Identifier(this=col) for col in self.columns]
-            )
-            with self.client.connect() as connection:
-                connection.execute(insert.sql())
+            self.connect.execute(f"INSERT INTO {self.name} ({self.columns[1]}, {self.columns[2]}) VALUES (?, ?)", [level, msg])
         except Exception:
             self.handleError(record)
 
@@ -51,7 +65,7 @@ def make_logger(logger_name: str)-> logging.Logger:
             datefmt='## %Y-%m-%d %H:%M:%S'
         ))
     temp_log.addHandler(console)
-    mongoio = clickhouse_handler(logger_name)
+    mongoio = duckdb_handler(logger_name)
     mongoio.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(levelname)s:%(message)s')
     mongoio.setFormatter(formatter)
