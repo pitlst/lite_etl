@@ -3,6 +3,7 @@ import pandas as pd
 import sqlalchemy
 import sqlglot
 import sqlglot.optimizer
+from sqlglot import exp
 from utils import SELECT_PATH, EXECUTER, CONNECT_CONFIG, local_db
 from tasks import task, task_connect_with  
 
@@ -107,13 +108,25 @@ class incremental_sql_sync(task):
         m_cursor.register("temp.source_incremental_data", source_incremental_data)
         m_cursor.register("temp.target_incremental_data", target_incremental_data)
         # 查询差异行
-        diff_query = """
+        diff_query = \
+        """
             SELECT id, A, B FROM df1
             EXCEPT
             SELECT id, A, B FROM df2
         """
-        diff_df = m_cursor.execute(diff_query).fetchdf()
-        
+        diff_ids = m_cursor.execute(diff_query).fetchdf()['id'].tolist()
+        parsed = sqlglot.parse_one(self.source_sync_sql_str)
+        # 添加 id 作为查询条件
+        if diff_ids:
+            id_condition = exp.In(
+                this=exp.Column(this="id"),
+                expressions=[exp.Literal(this=str(id), is_string=False) for id in diff_ids]
+            )
+            parsed.where = parsed.where.and_(id_condition) if parsed.where else id_condition
+        self.source_sync_sql_str = parsed.sql()
+        with self.source_client.connect() as connection:
+            with task_connect_with(connection, self.log):
+                source_incremental_data = pd.read_sql_query(sqlalchemy.text(self.source_incremental_sql_str), connection)
         
         
         
