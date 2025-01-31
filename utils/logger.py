@@ -2,7 +2,7 @@ import os
 import logging
 import colorlog
 import duckdb
-from utils import LOCAL_DB_PATH
+from utils import CONFIG
 
 class duckdb_handler(logging.Handler):
     '''将日志写道mongo数据库的自定义handler'''
@@ -10,7 +10,7 @@ class duckdb_handler(logging.Handler):
     def __init__(self, name: str) -> None:
         logging.Handler.__init__(self)
         self.name = name
-        self.connect = duckdb.connect(os.path.join(LOCAL_DB_PATH, "logger.db"))
+        self.connect = duckdb.connect(os.path.join(CONFIG.LOCAL_DB_PATH, "logger.db"))
         # 检查对应的表格是否创建
         exists = self.connect.execute(
             f"""

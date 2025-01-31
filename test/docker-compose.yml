@@ -94,48 +94,6 @@ services:
         runtime: runc
         image: registry.aliyuncs.com/zhuyijun/oracle:19c
 
-    clickhouse-server:
-        hostname: 80d57e1736a7
-        mac_address: 02:42:ac:11:00:03
-        environment:
-            - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-            - LANG=en_US.UTF-8
-            - TZ=UTC
-            - CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.xml
-        volumes:
-            - /var/lib/clickhouse
-        network_mode: bridge
-        ports:
-            - 8123:8123
-            - 9090:9000
-        restart: no
-        labels:
-            - com.clickhouse.build.version=24.12.3.47
-            - org.opencontainers.image.ref.name=ubuntu
-            - org.opencontainers.image.version=22.04
-        runtime: runc
-        image: clickhouse/clickhouse-server
-
-
-    redis:
-        hostname: d3fc08a917a6
-        mac_address: 02:42:ac:11:00:06
-        environment:
-            - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-            - GOSU_VERSION=1.17
-            - REDIS_VERSION=7.4.2
-            - REDIS_DOWNLOAD_URL=http://download.redis.io/releases/redis-7.4.2.tar.gz
-            - REDIS_DOWNLOAD_SHA=4ddebbf09061cbb589011786febdb34f29767dd7f89dbe712d2b68e808af6a1f
-        volumes:
-            - /data
-        network_mode: bridge
-        working_dir: /data
-        ports:
-            - 6379:6379
-        restart: no
-        runtime: runc
-        image: redis:latest
-
     mongodb-community-server:
         hostname: fd804e326e78
         user: mongodb
