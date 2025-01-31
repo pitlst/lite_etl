@@ -139,12 +139,22 @@ class extract_sql_total(task):
     '''通过sql的全量抽取到本地存储'''
     ...
     
-class load_table(task):
+class load_table_total(task):
     '''将本地存储全量加载到其他数据源'''
     ...
     
+class load_table_incremental(task):
+    '''将本地存储增量加载到其他数据源'''
+    ...
+    
+
+    
 class extract_nosql(task):
-    '''将nosql的文档型数据源抽取到本地存储，并附带转换'''
+    '''
+    将nosql的文档型数据源抽取到本地存储，并附带转换
+    
+    注意：因为数据格式的不同，目前不支持增量
+    '''
     ...
         
 

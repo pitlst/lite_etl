@@ -13,3 +13,6 @@ cx_oracle
 pymongo
 clickhouse-connect
 clickhouse-sqlalchemy
+apscheduler
+duckdb
+duckdb-engine
