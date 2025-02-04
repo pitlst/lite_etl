@@ -1,0 +1,12 @@
+{
+    "attention_colnmns": [
+        "bill.fid",
+        "bill.fmodifytime",
+        "bill.fk_crrc_issuedate",
+        "bill.fauditdate"
+    ],
+    "entry": {
+        "business_connection_copy_delivery_unit": {},
+        "business_connection_main_delivery_unit": {}
+    }
+}

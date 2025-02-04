@@ -1,0 +1,13 @@
+{
+    "attention_colnmns": [
+        "bill.fid",
+        "bill.fauditdate",
+        "bill.fmodifytime"
+    ],
+    "entry": {
+        "shop_exeecution_material_preparation_technology": {
+            "shop_exeecution_material_preparation_technology_unit_class": {},
+            "shop_exeecution_material_preparation_technology_unit_process": {}
+        }
+    }
+}

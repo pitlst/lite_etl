@@ -1,18 +1,11 @@
 import os
+import json
 import pandas as pd
 import sqlalchemy
 import sqlglot
 from sqlglot import exp
 from utils import CONFIG, CONNECTER, LOCALDB
 from tasks import task, task_connect_with  
-
-def check_sql(source_sql_path: str, source_connect_name: str) -> str:
-    '''从文件读取并检查用于查询的sql是否正确'''
-    with open(os.path.join(CONFIG.SELECT_PATH, source_sql_path), mode="r", encoding="utf-8") as file:
-        sql_str = file.read() 
-    sqlglot.parse_one(sql_str, read=CONFIG.CONNECT_CONFIG[source_connect_name]["type"])
-    return sql_str
-        
 
 class sync_sql_total(task):
     '''
@@ -33,13 +26,21 @@ class sync_sql_total(task):
         self.target_table_name = target_table_name
         self.target_connect_schema = target_connect_schema
         self.chunksize = chunksize
-        self.sql_str = check_sql(source_sql_path, source_connect_name)
+        self.sql_str = self.check_sql(source_sql_path, source_connect_name)
 
         if not CONFIG.CONNECT_CONFIG[target_connect_name]["write_enable"]:
             raise ValueError(target_connect_name + ": 该数据源不应当作为目标，因为其不支持写入")
         
         self.source_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
         self.target_client: sqlalchemy.engine.Engine = CONNECTER[target_connect_name]
+    
+    @staticmethod
+    def check_sql(source_sql_path: str, source_connect_name: str) -> str:
+        '''从文件读取并检查用于查询的sql是否正确'''
+        with open(os.path.join(CONFIG.SELECT_PATH, source_sql_path), mode="r", encoding="utf-8") as file:
+            sql_str = file.read() 
+        sqlglot.parse_one(sql_str, read=CONFIG.CONNECT_CONFIG[source_connect_name]["type"])
+        return sql_str
     
     def task_main(self):
         self.log.info("读取数据")
@@ -64,7 +65,7 @@ class sync_sql_total(task):
                     data.to_sql(name=self.target_table_name, con=connection, schema=self.target_connect_schema, index=False, if_exists='append')
         
 
-class sync_sql_incremental_sql(task):
+class sync_sql_incremental(task):
     '''
     通过sql的增量更新同步
     
@@ -72,9 +73,7 @@ class sync_sql_incremental_sql(task):
     '''
     def __init__(self,             
             name: str,        
-            source_incremental_sql_path: str, 
-            target_incremental_sql_path: str,
-            source_sync_sql_path: str,
+            source_incremental_name: str, 
             target_table_name: str,
             source_connect_name: str,
             target_connect_name: str,
@@ -83,16 +82,31 @@ class sync_sql_incremental_sql(task):
         super().__init__(name)
         self.target_table_name = target_table_name
         self.target_connect_schema = target_connect_schema
-        
-        self.source_incremental_sql_str = check_sql(source_incremental_sql_path, source_connect_name)
-        self.target_incremental_sql_str = check_sql(target_incremental_sql_path, target_connect_name)
-        self.source_sync_sql_str = check_sql(source_sync_sql_path, source_connect_name)
+        self.get_incremental_sql(source_incremental_name, source_connect_name)
         
         if not CONFIG.CONNECT_CONFIG[target_connect_name]["write_enable"]:
             raise ValueError(target_connect_name + ": 该数据源不应当作为目标，因为其不支持写入")
             
         self.source_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
         self.target_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
+        
+    def get_incremental_sql(self, source_incremental_name, source_connect_name):
+        '''根据配置文件生成获取增量对比用的sql'''
+        with open(os.path.join(CONFIG.SELECT_PATH, source_incremental_name + ".sql"), mode="r", encoding="utf-8") as file:
+            sql_str = file.read() 
+        with open(os.path.join(CONFIG.SELECT_PATH, source_incremental_name + ".json"), mode="r", encoding="utf-8") as file:
+            config = json.load(file)
+        # 替换select部分为增量
+        sql_ast = sqlglot.parse_one(sql_str, read=CONFIG.CONNECT_CONFIG[source_connect_name]["type"])
+        select_statement = sql_ast.find(exp.Select)
+        if not select_statement:
+            raise ValueError("sql语句中未找到select语句")
+        select_expressions = select_statement.expressions
+        for expr in select_expressions:
+            if isinstance(expr, exp.Alias):
+                column_name = expr.this.this if isinstance(expr.this, exp.Column) else expr.this.sql()
+                print(column_name)
+        ...
     
     def task_main(self):
         # 获取增量对比的信息
@@ -111,9 +125,9 @@ class sync_sql_incremental_sql(task):
         # 查询差异行
         diff_query = \
         """
-            SELECT id, A, B FROM df1
+            SELECT id, A, B FROM temp.source_incremental_data
             EXCEPT
-            SELECT id, A, B FROM df2
+            SELECT id, A, B FROM temp.target_incremental_data
         """
         diff_ids = m_cursor.execute(diff_query).fetchdf()['id'].tolist()
         parsed = sqlglot.parse_one(self.source_sync_sql_str)

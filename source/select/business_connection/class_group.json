@@ -1,0 +1,9 @@
+{
+    "attention_colnmns": [
+        "bill.fid",
+        "bill.fmodifytime"
+    ],
+    "entry": {
+        "class_group_entry": {}
+    }
+}

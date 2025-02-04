@@ -1,0 +1,7 @@
+{
+    "attention_colnmns": [
+        "f.fk_crrc_proposal_no",
+        "f.fk_crrc_proposal_status"
+    ],
+    "entry": {}
+}

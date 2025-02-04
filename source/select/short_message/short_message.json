@@ -1,0 +1,7 @@
+{
+    "attention_colnmns": [
+        "msg.fid",
+        "msg.FSENTTIME"
+    ],
+    "entry": {}
+}
