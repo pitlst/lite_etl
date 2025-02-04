@@ -18,6 +18,10 @@ def main():
         source_connect_name="mysql测试",
         target_connect_name="mysql测试"
     )
+    print("来源的增量检查sql为")
+    print(temp_task.source_incremental_sql_str)
+    print("目标的增量检查sql为")
+    print(temp_task.target_incremental_sql_str)
     
 
 if __name__ == "__main__":
