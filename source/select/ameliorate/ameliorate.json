@@ -1,7 +1,9 @@
 {
-    "attention_colnmns": [
-        "f.fk_crrc_proposal_no",
-        "f.fk_crrc_proposal_status"
-    ],
+    "attention": {
+        "id": "f.fk_crrc_proposal_no",
+        "columns": [
+            "f.fk_crrc_proposal_status"
+        ]
+    },
     "entry": {}
 }

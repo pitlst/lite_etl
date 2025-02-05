@@ -1,7 +1,9 @@
 {
-    "attention_colnmns": [
-        "f.id",
-        "f.modification_time"
-    ],
+    "attention": {
+        "id": "f.id",
+        "columns": [
+            "f.modification_time"
+        ]
+    },
     "entry": {}
 }

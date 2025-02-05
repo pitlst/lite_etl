@@ -1,7 +1,9 @@
 {
-    "attention_colnmns": [
-        "bill.fid",
-        "bill.fk_crrc_jobstatus"
-    ],
+    "attention": {
+        "id": "bill.fid",
+        "columns": [
+            "bill.fk_crrc_jobstatus"
+        ]
+    },
     "entry": {}
 }

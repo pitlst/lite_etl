@@ -33,20 +33,7 @@ class task(ABC):
         end_time = time.time()
         self.log.debug("函数花费时间为:{} 秒".format(end_time - start_time))
         
-    def catch_connect(self, connection: sqlalchemy.engine.Connection):
-        # 包装数据库执行的装饰器
-        def catch_exception(func: Callable):
-            def wrapper(*args, **kwargs):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    self.log.critical("报错内容：" + str(e))
-                    self.log.critical("报错堆栈信息：" + str(traceback.format_exc()))
-                finally:
-                    connection.rollback()
-            return wrapper
-        return catch_exception
-
+        
 class task_connect_with:
     '''用来处理连接异常的上下文管理器'''
     def __init__(self, connection: sqlalchemy.engine.Connection, log: logging.Logger):
@@ -62,6 +49,7 @@ class task_connect_with:
             self.log.critical("报错类型：" + str(exc_type))
             self.log.critical("报错内容：" + str(exc_value))
             self.log.critical("报错堆栈信息：" + str(traceback_info.format_exc()))
+            # 回退操作
             self.connection.rollback()
         else:
             self.connection.commit()  # 如果没有异常，提交事务

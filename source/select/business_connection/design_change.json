@@ -1,9 +1,11 @@
 {
-    "attention_colnmns": [
-        "bill.fid",
-        "bill.fk_crrc_senddate",
-        "bill.fmodifytime"
-    ],
+    "attention": {
+        "id": "bill.fid",
+        "columns": [
+            "bill.fk_crrc_senddate",
+            "bill.fmodifytime"
+        ]
+    },
     "entry": {
         "design_change_entry": {}
     }

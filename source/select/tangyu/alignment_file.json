@@ -1,7 +1,9 @@
 {
-    "attention_colnmns": [
-        "site_.GID",
-        "site_.MODIFY_DATE"
-    ],
+    "attention": {
+        "id": "site_.GID",
+        "columns": [
+            "site_.MODIFY_DATE"
+        ]
+    },
     "entry": {}
 }

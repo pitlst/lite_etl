@@ -1,8 +1,10 @@
 {
-    "attention_colnmns": [
-        "bill.fid",
-        "bill.fmodifytime"
-    ],
+    "attention": {
+        "id": "bill.fid",
+        "columns": [
+            "bill.fmodifytime"
+        ]
+    },
     "entry": {
         "technological_process_flow": {},
         "technological_process_change": {}

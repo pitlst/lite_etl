@@ -1,9 +1,11 @@
 {
-    "attention_colnmns": [
-        "bill.fid",
-        "bill.fmodifytime",
-        "bill.fauditdate"
-    ],
+    "attention": {
+        "id": "bill.fid",
+        "columns": [
+            "bill.fmodifytime",
+            "bill.fauditdate"
+        ]
+    },
     "entry": {
         "design_change_execution_audit": {},
         "design_change_execution_change_content": {},
