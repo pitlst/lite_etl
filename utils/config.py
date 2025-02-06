@@ -10,14 +10,10 @@ class config:
     # 是否在测试环境
     DEBUG = True
     # 配置文件
-    if DEBUG:
-        CONNECT_CONFIG = toml.load(os.path.join(SOURCE_PATH, "debug_connect.toml"))
-    else:
-        CONNECT_CONFIG = toml.load(os.path.join(SOURCE_PATH, "connect.toml"))
+    CONNECT_CONFIG = toml.load(os.path.join(SOURCE_PATH, "debug_connect.toml")) if DEBUG else toml.load(os.path.join(SOURCE_PATH, "connect.toml"))
     # 配置文件对应的路径
     LOCAL_DB_PATH = os.path.join(SOURCE_PATH, "database")
     SELECT_PATH = os.path.join(SOURCE_PATH, "select")
     TABLE_PATH = os.path.join(SOURCE_PATH, "file")
 
-    
 CONFIG = config()

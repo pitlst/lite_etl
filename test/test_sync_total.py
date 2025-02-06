@@ -2,15 +2,15 @@
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import sqlalchemy
+import pandas as pd
+from utils import CONNECTER
+from tasks.sync.total import sync_sql, extract_sql, extract_nosql
 
-def main():
+def main_sync_sql():
     print("全量数据库同步测试")
-    import sqlalchemy
-    import pandas as pd
-    from utils import CONNECTER
-    from tasks.sync import sync_sql_total
     print("创建任务")
-    temp_task = sync_sql_total(
+    temp_task = sync_sql(
         name="全量同步测试",
         source_sql_path="test/employees_select.sql",
         target_connect_schema="test_schema",
@@ -68,6 +68,63 @@ def main():
             '''
         )
         print(pd.read_sql_query(sql_str, connect))
-
+        
+def main_extract_sql():
+    print("全量数据库抽取测试")
+    print("创建任务")
+    temp_task = extract_sql(
+        name="全量抽取测试",
+        source_sql_path="test/employees_select.sql",
+        target_table_name="total_sync_test",
+        source_connect_name="mysql测试",
+    )
+    with CONNECTER["mysql测试"].connect() as connect:
+        print("创建测试用Schema")
+        connect.execute(sqlalchemy.text(
+            '''
+            CREATE SCHEMA IF NOT EXISTS test_schema
+            '''
+        ))
+        print("删除测试表如果存在")
+        connect.execute(sqlalchemy.text(
+            '''
+            DROP TABLE IF EXISTS test_schema.users
+            '''
+        ))
+        print("创建测试表")
+        connect.execute(sqlalchemy.text(
+            '''
+            CREATE TABLE test_schema.users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(50) NOT NULL,
+                age INT,
+                email VARCHAR(50)
+            )
+            '''
+        ))
+        print("添加测试数据")
+        connect.execute(sqlalchemy.text(
+            '''
+            INSERT INTO test_schema.users VALUES
+            (1, 'Alice', 25, 'alice@example.com'),
+            (2, 'Bob', 30, 'bob@example.com'),
+            (3, 'Charlie', 35, 'charlie@example.com')
+            '''
+        ))
+        connect.commit()
+    print("运行任务")
+    temp_task.run()
+    
+def main_extract_nosql():
+    print("全量数据库抽取测试")
+    print("创建任务")
+    temp_task = extract_nosql(
+        name="全量抽取测试",
+        source_sql_path="test/employees_select.sql",
+        target_table_name="total_sync_test",
+        source_connect_name="mysql测试",
+    )
+    
+    
 if __name__ == "__main__":
-    main()
+    main_extract_sql()

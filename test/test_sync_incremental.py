@@ -8,7 +8,7 @@ def main():
     import sqlalchemy
     import pandas as pd
     from utils import CONNECTER
-    from tasks.sync import sync_sql_incremental
+    from tasks.sync.total import sync_sql_incremental
     print("创建任务")
     temp_task = sync_sql_incremental(
         name="增量同步测试",

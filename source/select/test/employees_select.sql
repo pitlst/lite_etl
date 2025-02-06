@@ -1,6 +1,6 @@
 select
     id,
-    "name",
+    name,
     age,
     email
 from

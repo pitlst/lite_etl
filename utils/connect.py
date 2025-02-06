@@ -23,7 +23,7 @@ class connecter:
                     cls._instance = super(connecter, cls).__new__(cls)
         return cls._instance
 
-    def make_client(self, connect_config: str):
+    def make_client(self, connect_config: str) -> None:
         '''
         创建数据连接的工厂类
         用于在对应进程中创建对应进程的数据库连接

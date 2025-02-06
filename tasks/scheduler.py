@@ -2,7 +2,7 @@ import os
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from utils import CONFIG
-from sync import sync_sql_total
+from tasks.sync.total import sync_sql_total
 
 def start_main():
     pass

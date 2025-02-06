@@ -15,4 +15,3 @@ clickhouse-connect
 clickhouse-sqlalchemy
 apscheduler
 duckdb
-duckdb-engine

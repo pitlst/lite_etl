@@ -1,0 +1,165 @@
+import os
+import json
+import pandas as pd
+import pymongo
+import pymongo.collection
+import sqlalchemy
+import sqlglot
+from utils import CONFIG, CONNECTER, LOCALDB
+from tasks.base import task, task_connect_with
+
+
+def check_sql(source_sql_path: str, source_connect_name: str) -> str:
+    '''从文件读取并检查用于查询的sql是否正确'''
+    with open(os.path.join(CONFIG.SELECT_PATH, source_sql_path), mode="r", encoding="utf-8") as file:
+        sql_str = file.read()
+    sqlglot.parse_one(sql_str, read=CONFIG.CONNECT_CONFIG[source_connect_name]["type"])
+    return sql_str
+
+
+class extract_sql(task):
+    '''通过sql的全量抽取到本地存储'''
+
+    def __init__(self,
+                 name: str,
+                 source_sql_path: str,
+                 target_table_name: str,
+                 source_connect_name: str,
+                 target_connect_schema: str = "ods",
+                 chunksize: int = 10000):
+        super().__init__(name)
+        self.target_table_name = target_table_name
+        self.target_connect_schema = target_connect_schema
+        self.chunksize = chunksize
+
+        self.sql_str = check_sql(source_sql_path, source_connect_name)
+        self.source_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
+
+    def task_main(self):
+        self.log.info("读取数据")
+        with task_connect_with(self.source_client, self.log) as connection:
+            data_group = pd.read_sql_query(sqlalchemy.text(self.sql_str), connection, chunksize=self.chunksize)
+
+        with LOCALDB.cursor() as m_cursor:
+            temp_name = self.name + ".temp_data"
+            iterator = iter(data_group)
+
+            self.log.info("删除并重建目标表中......")
+            temp_data = next(iterator, None)
+            if temp_data is None:
+                return ValueError("查询数据为空")
+            m_cursor.register(temp_name, temp_data)
+            m_cursor.execute(
+                f'''
+                CREATE OR REPLACE TABLE {self.target_connect_schema}.{self.target_table_name} AS
+                SELECT * FROM {temp_name} LIMIT 0
+                '''
+            )
+
+            self.log.info("写入数据")
+            while not temp_data is None:
+                # 这里第一次的数据是上面通过迭代器获取的
+                m_cursor.register(temp_name, temp_data)
+                m_cursor.execute(
+                    f'''
+                    INSERT INTO {self.target_connect_schema}.{self.target_table_name} SELECT * FROM {temp_name}
+                    '''
+                )
+                # 这里获取下一次填入的数据，如果为none会自动退出循环
+                temp_data = next(iterator, None)
+
+
+class extract_nosql(task):
+    '''
+    将nosql的文档型数据源抽取到本地存储，并附带一个默认的转换
+
+    注意：因为数据格式的不同，目前不支持增量
+    '''
+
+    def __init__(self,
+                 name: str,
+                 source_connect_name: str,
+                 source_database_name: str,
+                 source_document_name: str,
+                 target_table_name: str,
+                 target_connect_schema: str | None = None,
+                 chunksize: int = 10000):
+        super().__init__(name)
+        self.target_table_name = target_table_name
+        self.target_connect_schema = target_connect_schema
+        self.chunksize = chunksize
+        
+        self.source_coll: pymongo.collection.Collection = CONNECTER[source_connect_name][source_database_name][source_document_name]
+        
+    def task_main(self):
+        self.log.info("读取数据")
+        data_group = self.source_coll.find({}, batch_size=self.chunksize)
+
+        with LOCALDB.cursor() as m_cursor:
+            temp_name = self.name + ".temp_data"
+            m_cursor.execute(
+                f"""
+                CREATE OR REPLACE TABLE {self.target_connect_schema}.{self.target_table_name} (
+                    id VARCHAR PRIMARY KEY,
+                    document JSON
+                )
+                """
+            )
+            for documents in data_group:
+                temp_list = []
+                for doc in documents:
+                    temp_list.append([str(doc.pop('_id')), json.dumps(doc)])
+                m_cursor.executemany(
+                    f"""
+                        INSERT OR IGNORE INTO {temp_name} (id, document)
+                        VALUES (?, ?)
+                    """, temp_list)
+            
+
+class sync_sql(task):
+    '''
+    通过sql的全量更新同步
+
+    注意：该类的全量更新通过pandas实现，其数据会以批量的方式写入内存再写出
+    '''
+
+    def __init__(self,
+                 name: str,
+                 source_sql_path: str,
+                 target_table_name: str,
+                 source_connect_name: str,
+                 target_connect_name: str,
+                 target_connect_schema: str | None = None,
+                 chunksize: int = 10000):
+        super().__init__(name)
+        self.target_table_name = target_table_name
+        self.target_connect_schema = target_connect_schema
+        self.chunksize = chunksize
+        self.sql_str = check_sql(source_sql_path, source_connect_name)
+
+        if not CONFIG.CONNECT_CONFIG[target_connect_name]["write_enable"]:
+            raise ValueError(target_connect_name + ": 该数据源不应当作为目标，因为其不支持写入")
+
+        self.source_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
+        self.target_client: sqlalchemy.engine.Engine = CONNECTER[target_connect_name]
+
+    def task_main(self):
+        self.log.info("读取数据")
+        with task_connect_with(self.source_client, self.log) as connection:
+            data_group = pd.read_sql_query(sqlalchemy.text(self.sql_str), connection, chunksize=self.chunksize)
+
+        with task_connect_with(self.target_client, self.log) as connection:
+            self.log.info("检查目标数据库是存在目标表")
+            if sqlalchemy.inspect(connection).has_table(self.target_table_name, schema=self.target_connect_schema):
+                self.log.info("存在目标表，正在清空......")
+                if not self.target_connect_schema is None:
+                    connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_connect_schema}.{self.target_table_name}"))
+                else:
+                    connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_table_name}"))
+            else:
+                self.log.info("不存在目标表")
+            self.log.info("写入数据")
+            # 实际上这里插入语句的生成是借助pandas的tosql函数
+            for data in data_group:
+                data.to_sql(name=self.target_table_name, con=connection, schema=self.target_connect_schema, index=False, if_exists='append')
+
