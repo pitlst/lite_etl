@@ -67,7 +67,53 @@ class extract_sql(task):
                 )
                 # 这里获取下一次填入的数据，如果为none会自动退出循环
                 temp_data = next(iterator, None)
+                
+                
+class load_table(task):
+    '''将本地存储的数据加载到目标存储中'''
 
+    def __init__(self,
+                 name: str,
+                 target_connect_name: str,
+                 source_table_name: str,
+                 target_table_name: str,
+                 source_connect_schema: str = "dm",
+                 target_connect_schema: str | None = None,
+                 chunksize: int = 10000):
+        super().__init__(name)
+        self.source_table_name = source_table_name
+        self.source_connect_schema = source_connect_schema
+        self.target_table_name = target_table_name
+        self.target_connect_schema = target_connect_schema
+        self.chunksize = chunksize
+        
+        self.target_client: sqlalchemy.engine.Engine = CONNECTER[target_connect_name]
+        
+    def task_main(self):
+        self.log.info("读取数据")
+        with LOCALDB.cursor() as m_cursor:
+            data_group = m_cursor.execute(
+                f'''
+                SELECT * FROM {self.source_connect_schema}.{self.source_table_name}
+                '''
+            ).fetch_df()
+        
+        with task_connect_with(self.target_client, self.log) as connection:
+            self.log.info("检查目标数据库是存在目标表")
+            if sqlalchemy.inspect(connection).has_table(self.target_table_name, schema=self.target_connect_schema):
+                self.log.info("存在目标表，正在删除......")
+                if not self.target_connect_schema is None:
+                    connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_connect_schema}.{self.target_table_name}"))
+                else:
+                    connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_table_name}"))
+            else:
+                self.log.info("不存在目标表")
+            self.log.info("写入数据")
+            # 实际上这里插入语句的生成是借助pandas的tosql函数
+            data_group.to_sql(name=self.target_table_name, con=connection, schema=self.target_connect_schema, index=False, if_exists='append', chunksize=self.chunksize)
+        
+        
+        
 
 class extract_nosql(task):
     '''
@@ -82,7 +128,7 @@ class extract_nosql(task):
                  source_database_name: str,
                  source_document_name: str,
                  target_table_name: str,
-                 target_connect_schema: str | None = None,
+                 target_connect_schema: str = "ods",
                  chunksize: int = 10000):
         super().__init__(name)
         self.target_table_name = target_table_name
@@ -96,7 +142,6 @@ class extract_nosql(task):
         data_group = self.source_coll.find({}, batch_size=self.chunksize)
 
         with LOCALDB.cursor() as m_cursor:
-            temp_name = self.name + ".temp_data"
             m_cursor.execute(
                 f"""
                 CREATE OR REPLACE TABLE {self.target_connect_schema}.{self.target_table_name} (
@@ -105,13 +150,20 @@ class extract_nosql(task):
                 )
                 """
             )
+            temp_list = []
             for documents in data_group:
-                temp_list = []
-                for doc in documents:
-                    temp_list.append([str(doc.pop('_id')), json.dumps(doc)])
+                temp_list.append([str(documents.pop('_id')), json.dumps(documents)])
+                if len(temp_list) >= self.chunksize:
+                    m_cursor.executemany(
+                        f"""
+                            INSERT OR IGNORE INTO {self.target_connect_schema}.{self.target_table_name} (id, document)
+                            VALUES (?, ?)
+                        """, temp_list)
+                    temp_list = []
+            if len(temp_list) != 0:
                 m_cursor.executemany(
                     f"""
-                        INSERT OR IGNORE INTO {temp_name} (id, document)
+                        INSERT OR IGNORE INTO {self.target_connect_schema}.{self.target_table_name} (id, document)
                         VALUES (?, ?)
                     """, temp_list)
             
@@ -151,7 +203,7 @@ class sync_sql(task):
         with task_connect_with(self.target_client, self.log) as connection:
             self.log.info("检查目标数据库是存在目标表")
             if sqlalchemy.inspect(connection).has_table(self.target_table_name, schema=self.target_connect_schema):
-                self.log.info("存在目标表，正在清空......")
+                self.log.info("存在目标表，正在删除......")
                 if not self.target_connect_schema is None:
                     connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_connect_schema}.{self.target_table_name}"))
                 else:

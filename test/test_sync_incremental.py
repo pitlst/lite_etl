@@ -2,13 +2,14 @@
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-
+import sqlalchemy
+import pandas as pd
+from utils import CONNECTER
+from tasks.sync.total import sync_sql_incremental
+    
 def main():
     print("全量数据库同步测试")
-    import sqlalchemy
-    import pandas as pd
-    from utils import CONNECTER
-    from tasks.sync.total import sync_sql_incremental
+
     print("创建任务")
     temp_task = sync_sql_incremental(
         name="增量同步测试",
