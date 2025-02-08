@@ -172,4 +172,5 @@ cython_debug/
 
 
 .vscode
-*.db
+source/database/*.db
+source/database/*.db.wal
