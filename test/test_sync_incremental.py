@@ -5,7 +5,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import sqlalchemy
 import pandas as pd
 from utils import CONNECTER
-from tasks.sync.total import sync_sql_incremental
+from tasks.sync import sync_sql_incremental
     
 def main():
     print("全量数据库同步测试")

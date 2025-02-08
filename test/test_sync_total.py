@@ -5,7 +5,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import sqlalchemy
 import pandas as pd
 from utils import CONNECTER, LOCALDB
-from tasks.sync.total import sync_sql, extract_sql, extract_nosql, load_table
+from tasks.sync import sync_sql, extract_sql, extract_nosql, load_table
 
 pd.set_option('display.max_rows', None)  # 显示所有行
 pd.set_option('display.max_columns', None)  # 显示所有列
@@ -17,7 +17,7 @@ def main_sync_sql():
     print("创建任务")
     temp_task = sync_sql(
         name="全量同步测试",
-        source_sql_path="test/employees_select.sql",
+        source_sql_or_path="test/employees_select.sql",
         target_connect_schema="test_schema",
         target_table_name="total_sync_test",
         source_connect_name="mysql测试",
@@ -88,7 +88,7 @@ def main_extract_sql():
     print("创建任务")
     temp_task = extract_sql(
         name="全量抽取测试",
-        source_sql_path="test/employees_select.sql",
+        source_sql_or_path="test/employees_select.sql",
         target_table_name="total_sync_test",
         source_connect_name="mysql测试",
     )

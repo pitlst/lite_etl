@@ -3,19 +3,19 @@ import sqlalchemy
 import traceback
 import logging
 from abc import ABC, abstractmethod
-from utils import make_logger, CONFIG
+from utils import make_logger
     
 class task_connect_with:
     '''用来处理连接异常的上下文管理器'''
-    def __init__(self, engine: sqlalchemy.engine.Engine, log: logging.Logger):
+    def __init__(self, engine: sqlalchemy.engine.Engine, log: logging.Logger) -> None:
         self.engine = engine
         self.connection = engine.connect()
         self.log = log
 
-    def __enter__(self):
+    def __enter__(self) -> sqlalchemy.engine.Connection:
         return self.connection
 
-    def __exit__(self, exc_type, exc_value, traceback_info):
+    def __exit__(self, exc_type, exc_value, traceback_info) -> bool:
         # 退出上下文时，处理异常并回滚事务
         if exc_type is not None:  # 如果有异常发生
             self.log.critical("报错类型：" + str(exc_type))
@@ -41,10 +41,10 @@ class task(ABC):
     
     # 继承后实现逻辑的地方
     @abstractmethod
-    def task_main(self):
+    def task_main(self) -> None:
         ...
     
-    def run(self):
+    def run(self) -> None:
         # 真正运行函数的地方
         start_time = time.time()
         try:

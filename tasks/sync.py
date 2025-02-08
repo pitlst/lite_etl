@@ -8,34 +8,57 @@ import sqlglot
 from utils import CONFIG, CONNECTER, LOCALDB
 from tasks.base import task, task_connect_with
 
+def is_path_or_sql(input_string):
+    '''用于判断是路径还是sql'''
+    # 定义路径的常见分隔符
+    path_separators = ['/', '\\', '.']
+    # 定义 SQL 的常见关键字
+    sql_keywords = ['SELECT', 'UPDATE', 'INSERT', 'DELETE', 'FROM', 'WHERE', 'SET', 'AND', 'OR']
+    # 检查是否包含路径分隔符
+    path_detected = any(sep in input_string for sep in path_separators)
+    # 检查是否包含 SQL 关键字
+    sql_detected = any(keyword in input_string for keyword in sql_keywords)
+    if path_detected and sql_detected:
+        return None
+    elif path_detected:
+        return True
+    elif sql_detected:
+        return False
+    else:
+        return None
 
-def check_sql(source_sql_path: str, source_connect_name: str) -> str:
+def check_sql(source_sql_or_path: str, source_connect_name: str) -> str:
     '''从文件读取并检查用于查询的sql是否正确'''
-    with open(os.path.join(CONFIG.SELECT_PATH, source_sql_path), mode="r", encoding="utf-8") as file:
-        sql_str = file.read()
+    label = is_path_or_sql(source_sql_or_path)
+    if label is None:
+        raise ValueError("输入的sql路径或sql不正确")
+    elif label:
+        with open(os.path.join(CONFIG.SELECT_PATH, source_sql_or_path), mode="r", encoding="utf-8") as file:
+            sql_str = file.read()
+    else:
+        sql_str = source_sql_or_path
     sqlglot.parse_one(sql_str, read=CONFIG.CONNECT_CONFIG[source_connect_name]["type"])
     return sql_str
-
 
 class extract_sql(task):
     '''通过sql的全量抽取到本地存储'''
 
     def __init__(self,
                  name: str,
-                 source_sql_path: str,
+                 source_sql_or_path: str,
                  target_table_name: str,
                  source_connect_name: str,
                  target_connect_schema: str = "ods",
-                 chunksize: int = 10000):
+                 chunksize: int = 10000) -> None:
         super().__init__(name)
         self.target_table_name = target_table_name
         self.target_connect_schema = target_connect_schema
         self.chunksize = chunksize
 
-        self.sql_str = check_sql(source_sql_path, source_connect_name)
+        self.sql_str = check_sql(source_sql_or_path, source_connect_name)
         self.source_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
 
-    def task_main(self):
+    def task_main(self) -> None:
         self.log.info("读取数据")
         with task_connect_with(self.source_client, self.log) as connection:
             data_group = pd.read_sql_query(sqlalchemy.text(self.sql_str), connection, chunksize=self.chunksize)
@@ -79,7 +102,7 @@ class load_table(task):
                  target_table_name: str,
                  source_connect_schema: str = "dm",
                  target_connect_schema: str | None = None,
-                 chunksize: int = 10000):
+                 chunksize: int = 10000) -> None:
         super().__init__(name)
         self.source_table_name = source_table_name
         self.source_connect_schema = source_connect_schema
@@ -89,7 +112,7 @@ class load_table(task):
         
         self.target_client: sqlalchemy.engine.Engine = CONNECTER[target_connect_name]
         
-    def task_main(self):
+    def task_main(self) -> None:
         self.log.info("读取数据")
         with LOCALDB.cursor() as m_cursor:
             data_group = m_cursor.execute(
@@ -129,7 +152,7 @@ class extract_nosql(task):
                  source_document_name: str,
                  target_table_name: str,
                  target_connect_schema: str = "ods",
-                 chunksize: int = 10000):
+                 chunksize: int = 10000) -> None:
         super().__init__(name)
         self.target_table_name = target_table_name
         self.target_connect_schema = target_connect_schema
@@ -137,7 +160,7 @@ class extract_nosql(task):
         
         self.source_coll: pymongo.collection.Collection = CONNECTER[source_connect_name][source_database_name][source_document_name]
         
-    def task_main(self):
+    def task_main(self) -> None:
         self.log.info("读取数据")
         data_group = self.source_coll.find({}, batch_size=self.chunksize)
 
@@ -177,17 +200,17 @@ class sync_sql(task):
 
     def __init__(self,
                  name: str,
-                 source_sql_path: str,
+                 source_sql_or_path: str,
                  target_table_name: str,
                  source_connect_name: str,
                  target_connect_name: str,
                  target_connect_schema: str | None = None,
-                 chunksize: int = 10000):
+                 chunksize: int = 10000) -> None:
         super().__init__(name)
         self.target_table_name = target_table_name
         self.target_connect_schema = target_connect_schema
         self.chunksize = chunksize
-        self.sql_str = check_sql(source_sql_path, source_connect_name)
+        self.sql_str = check_sql(source_sql_or_path, source_connect_name)
 
         if not CONFIG.CONNECT_CONFIG[target_connect_name]["write_enable"]:
             raise ValueError(target_connect_name + ": 该数据源不应当作为目标，因为其不支持写入")
@@ -195,7 +218,7 @@ class sync_sql(task):
         self.source_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
         self.target_client: sqlalchemy.engine.Engine = CONNECTER[target_connect_name]
 
-    def task_main(self):
+    def task_main(self) -> None:
         self.log.info("读取数据")
         with task_connect_with(self.source_client, self.log) as connection:
             data_group = pd.read_sql_query(sqlalchemy.text(self.sql_str), connection, chunksize=self.chunksize)
@@ -214,4 +237,3 @@ class sync_sql(task):
             # 实际上这里插入语句的生成是借助pandas的tosql函数
             for data in data_group:
                 data.to_sql(name=self.target_table_name, con=connection, schema=self.target_connect_schema, index=False, if_exists='append')
-
