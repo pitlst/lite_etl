@@ -1,9 +1,0 @@
-{
-    "attention": {
-        "id": "f.id",
-        "columns": [
-            "f.modification_time"
-        ]
-    },
-    "entry": {}
-}

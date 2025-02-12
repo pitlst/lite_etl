@@ -1,33 +1,45 @@
+
 import os
-from apscheduler.schedulers.background import BackgroundScheduler
+import threading
+import queue
+import concurrent.futures
+from utils.config import CONFIG
 
-from utils import CONFIG
-from tasks.sync import sync_sql_total
+# 仅在类型检查时导入
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from tasks.base import task
 
-def start_main():
-    pass
 
-def end_main():
-    pass
+class scheduler:
+    _instance = None
+    _lock = threading.Lock()
 
-def main_dag():
-    scheduler = BackgroundScheduler({
-        'apscheduler.jobstores.default': {
-            'type': 'sqlalchemy',
-            'url': 'duckdb://' + CONFIG.LOCAL_DB_PATH + '/scheduler.db'
-        },
-        'apscheduler.executors.default': {
-            'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
-            'max_workers': '20'
-        },
-        'apscheduler.executors.processpool': {
-            'type': 'processpool',
-            'max_workers': '5'
-        },
-        'apscheduler.job_defaults.coalesce': 'false',
-        'apscheduler.job_defaults.max_instances': '30',
-        'apscheduler.timezone': 'UTC',
-    })
-    
-    start_job = scheduler.add_job(start_main, 'interval', seconds=2)
-    end_job = scheduler.add_job(end_main, 'interval', seconds=2)
+    def __init__(self) -> None:
+        self.queue = queue.Queue()
+
+    def __new__(cls, *args, **kwargs):
+        '''基于锁的多线程安全单例'''
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super(scheduler, cls).__new__(cls)
+        return cls._instance
+
+    def add(self, task: task) -> None:
+        self.queue.put(task)
+
+    def run(self) -> None:
+        temp_num = os.cpu_count()
+        if temp_num is None:
+            temp_num = CONFIG.THREAD_MAX_NUM_DEFLAUTE
+        else:
+            temp_num *= 2
+            
+        with concurrent.futures.ThreadPoolExecutor(max_workers=temp_num) as executor:
+            while True:
+                task_temp: task = self.queue.get()
+                executor.submit(task_temp.run)
+
+
+SCHEDULER = scheduler()

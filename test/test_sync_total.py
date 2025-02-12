@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import sqlalchemy
 import pandas as pd
-from utils import CONNECTER, LOCALDB
+from utils.connect import CONNECTER, LOCALDB
 from tasks.sync import sync_sql, extract_sql, extract_nosql, load_table
 
 pd.set_option('display.max_rows', None)  # 显示所有行
@@ -23,7 +23,7 @@ def main_sync_sql():
         source_connect_name="mysql测试",
         target_connect_name="mysql测试"
     )
-    with CONNECTER["mysql测试"].connect() as connect:
+    with CONNECTER.get_sql("mysql测试").connect() as connect:
         print("创建测试用Schema")
         connect.execute(sqlalchemy.text(
             '''
@@ -60,7 +60,7 @@ def main_sync_sql():
     print("运行任务")
     temp_task.run()
     print("检查数据")
-    with CONNECTER["mysql测试"].connect() as connect:
+    with CONNECTER.get_sql("mysql测试").connect() as connect:
         sql_str = sqlalchemy.text(
             '''
             select
@@ -92,7 +92,7 @@ def main_extract_sql():
         target_table_name="total_sync_test",
         source_connect_name="mysql测试",
     )
-    with CONNECTER["mysql测试"].connect() as connect:
+    with CONNECTER.get_sql("mysql测试").connect() as connect:
         print("创建测试用Schema")
         connect.execute(sqlalchemy.text(
             '''
@@ -151,7 +151,7 @@ def main_extract_nosql():
     )
     
     print("获取 MongoDB 客户端")
-    collection = CONNECTER["mongo测试"]["test_schema"]["users_temp"]
+    collection = CONNECTER.get_nosql("mongo测试")["test_schema"]["users_temp"]
     print("删除已存在的集合")
     collection.drop()
     print("插入数据")
@@ -232,7 +232,7 @@ def main_load_table():
     print("运行任务")
     temp_task.run()
     print("打印目标表数据")
-    with CONNECTER["mysql测试"].connect() as connect:
+    with CONNECTER.get_sql("mysql测试").connect() as connect:
         sql_str = sqlalchemy.text(
             '''
             select

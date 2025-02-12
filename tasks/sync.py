@@ -1,12 +1,12 @@
 import os
 import json
 import pandas as pd
-import pymongo
-import pymongo.collection
 import sqlalchemy
 import sqlglot
-from utils import CONFIG, CONNECTER, LOCALDB
+from utils.config import CONFIG
+from utils.connect import CONNECTER, LOCALDB
 from tasks.base import task, task_connect_with
+
 
 def is_path_or_sql(input_string):
     '''用于判断是路径还是sql'''
@@ -27,6 +27,7 @@ def is_path_or_sql(input_string):
     else:
         return None
 
+
 def check_sql(source_sql_or_path: str, source_connect_name: str) -> str:
     '''从文件读取并检查用于查询的sql是否正确'''
     label = is_path_or_sql(source_sql_or_path)
@@ -39,6 +40,7 @@ def check_sql(source_sql_or_path: str, source_connect_name: str) -> str:
         sql_str = source_sql_or_path
     sqlglot.parse_one(sql_str, read=CONFIG.CONNECT_CONFIG[source_connect_name]["type"])
     return sql_str
+
 
 class extract_sql(task):
     '''通过sql的全量抽取到本地存储'''
@@ -56,12 +58,15 @@ class extract_sql(task):
         self.chunksize = chunksize
 
         self.sql_str = check_sql(source_sql_or_path, source_connect_name)
-        self.source_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
+        self.source_client = CONNECTER.get_sql(source_connect_name)
 
     def task_main(self) -> None:
         self.log.info("读取数据")
+        data_group = None
         with task_connect_with(self.source_client, self.log) as connection:
             data_group = pd.read_sql_query(sqlalchemy.text(self.sql_str), connection, chunksize=self.chunksize)
+        if data_group is None:
+            raise ValueError("未查询到数据或者连接失败")
 
         with LOCALDB.cursor() as m_cursor:
             temp_name = self.name + ".temp_data"
@@ -70,7 +75,7 @@ class extract_sql(task):
             self.log.info("删除并重建目标表中......")
             temp_data = next(iterator, None)
             if temp_data is None:
-                return ValueError("查询数据为空")
+                raise ValueError("查询数据为空")
             m_cursor.register(temp_name, temp_data)
             m_cursor.execute(
                 f'''
@@ -90,8 +95,8 @@ class extract_sql(task):
                 )
                 # 这里获取下一次填入的数据，如果为none会自动退出循环
                 temp_data = next(iterator, None)
-                
-                
+
+
 class load_table(task):
     '''将本地存储的数据加载到目标存储中'''
 
@@ -109,9 +114,9 @@ class load_table(task):
         self.target_table_name = target_table_name
         self.target_connect_schema = target_connect_schema
         self.chunksize = chunksize
-        
-        self.target_client: sqlalchemy.engine.Engine = CONNECTER[target_connect_name]
-        
+
+        self.target_client: sqlalchemy.engine.Engine = CONNECTER.get_sql(target_connect_name)
+
     def task_main(self) -> None:
         self.log.info("读取数据")
         with LOCALDB.cursor() as m_cursor:
@@ -120,7 +125,7 @@ class load_table(task):
                 SELECT * FROM {self.source_connect_schema}.{self.source_table_name}
                 '''
             ).fetch_df()
-        
+
         with task_connect_with(self.target_client, self.log) as connection:
             self.log.info("检查目标数据库是存在目标表")
             if sqlalchemy.inspect(connection).has_table(self.target_table_name, schema=self.target_connect_schema):
@@ -134,9 +139,7 @@ class load_table(task):
             self.log.info("写入数据")
             # 实际上这里插入语句的生成是借助pandas的tosql函数
             data_group.to_sql(name=self.target_table_name, con=connection, schema=self.target_connect_schema, index=False, if_exists='append', chunksize=self.chunksize)
-        
-        
-        
+
 
 class extract_nosql(task):
     '''
@@ -157,9 +160,9 @@ class extract_nosql(task):
         self.target_table_name = target_table_name
         self.target_connect_schema = target_connect_schema
         self.chunksize = chunksize
-        
-        self.source_coll: pymongo.collection.Collection = CONNECTER[source_connect_name][source_database_name][source_document_name]
-        
+
+        self.source_coll = CONNECTER.get_nosql(source_connect_name)[source_database_name][source_document_name]
+
     def task_main(self) -> None:
         self.log.info("读取数据")
         data_group = self.source_coll.find({}, batch_size=self.chunksize)
@@ -189,7 +192,7 @@ class extract_nosql(task):
                         INSERT OR IGNORE INTO {self.target_connect_schema}.{self.target_table_name} (id, document)
                         VALUES (?, ?)
                     """, temp_list)
-            
+
 
 class sync_sql(task):
     '''
@@ -215,13 +218,16 @@ class sync_sql(task):
         if not CONFIG.CONNECT_CONFIG[target_connect_name]["write_enable"]:
             raise ValueError(target_connect_name + ": 该数据源不应当作为目标，因为其不支持写入")
 
-        self.source_client: sqlalchemy.engine.Engine = CONNECTER[source_connect_name]
-        self.target_client: sqlalchemy.engine.Engine = CONNECTER[target_connect_name]
+        self.source_client: sqlalchemy.engine.Engine = CONNECTER.get_sql(source_connect_name)
+        self.target_client: sqlalchemy.engine.Engine = CONNECTER.get_sql(target_connect_name)
 
     def task_main(self) -> None:
         self.log.info("读取数据")
+        data_group = None
         with task_connect_with(self.source_client, self.log) as connection:
             data_group = pd.read_sql_query(sqlalchemy.text(self.sql_str), connection, chunksize=self.chunksize)
+        if data_group is None:
+            raise ValueError("未查询到数据或者连接失败")
 
         with task_connect_with(self.target_client, self.log) as connection:
             self.log.info("检查目标数据库是存在目标表")

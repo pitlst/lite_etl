@@ -2,7 +2,7 @@ import os
 import logging
 import colorlog
 import duckdb
-from utils import CONFIG
+from utils.config import CONFIG
 
 class duckdb_handler(logging.Handler):
     '''将日志写到本地duckDB数据库的自定义handler'''

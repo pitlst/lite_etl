@@ -12,7 +12,7 @@ def main():
             
         def task_main(self):
             print("测试")
-            return super().task_main()
+
     temp = temp_task("测试")
     temp.run()
 

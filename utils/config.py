@@ -15,5 +15,7 @@ class config:
     LOCAL_DB_PATH = os.path.join(SOURCE_PATH, "database")
     SELECT_PATH = os.path.join(SOURCE_PATH, "select")
     TABLE_PATH = os.path.join(SOURCE_PATH, "file")
+    # 调度器线程池的缺省值
+    THREAD_MAX_NUM_DEFLAUTE = 5
 
 CONFIG = config()

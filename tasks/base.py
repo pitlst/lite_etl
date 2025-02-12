@@ -1,9 +1,11 @@
 import time
+import threading
 import sqlalchemy
 import traceback
 import logging
 from abc import ABC, abstractmethod
-from utils import make_logger
+from utils.logger import make_logger
+from tasks.scheduler import SCHEDULER
     
 class task_connect_with:
     '''用来处理连接异常的上下文管理器'''
@@ -32,11 +34,12 @@ class task(ABC):
     '''所有任务的抽象'''
     def __init__(self, name: str) -> None:
         self.name = name
+        self.is_run = threading.Event()
         self.log = make_logger(self.name)
         self.next = []
         
-    def then(self, name: str):
-        self.next.append(name)
+    def then(self, input_task: 'task') -> 'task':
+        self.next.append(input_task)
         return self
     
     # 继承后实现逻辑的地方
@@ -45,6 +48,8 @@ class task(ABC):
         ...
     
     def run(self) -> None:
+        if self.is_run.is_set():
+           raise ValueError("任务已经运行过了") 
         # 真正运行函数的地方
         start_time = time.time()
         try:
@@ -54,7 +59,10 @@ class task(ABC):
             self.log.critical("报错堆栈信息：" + str(traceback.format_exc()))
         end_time = time.time()
         self.log.debug("函数花费时间为:{} 秒".format(end_time - start_time))
-        
+        self.is_run.set()
+        # 如果存在对应的依赖任务，则添加到调度器中
+        for next_task in self.next:
+            SCHEDULER.add(next_task)
         
 
     
