@@ -18,12 +18,11 @@ def is_path_or_sql(input_string):
     path_detected = any(sep in input_string for sep in path_separators)
     # 检查是否包含 SQL 关键字
     sql_detected = any(keyword in input_string for keyword in sql_keywords)
-    if path_detected and sql_detected:
-        return None
+    # 有大写select我就认为他是查询的语句
+    if sql_detected:
+        return False
     elif path_detected:
         return True
-    elif sql_detected:
-        return False
     else:
         return None
 
@@ -77,6 +76,11 @@ class extract_sql(task):
             if temp_data is None:
                 raise ValueError("查询数据为空")
             m_cursor.register(temp_name, temp_data)
+            m_cursor.execute(
+                f'''
+                CREATE SCHEMA IF NOT EXISTS {self.target_connect_schema}
+                '''
+            )
             m_cursor.execute(
                 f'''
                 CREATE OR REPLACE TABLE {self.target_connect_schema}.{self.target_table_name} AS

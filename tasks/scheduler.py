@@ -26,7 +26,7 @@ class scheduler:
                     cls._instance = super(scheduler, cls).__new__(cls)
         return cls._instance
 
-    def add(self, task: task) -> None:
+    def add(self, task: 'task') -> None:
         self.queue.put(task)
 
     def run(self) -> None:
@@ -38,7 +38,7 @@ class scheduler:
             
         with concurrent.futures.ThreadPoolExecutor(max_workers=temp_num) as executor:
             while True:
-                task_temp: task = self.queue.get()
+                task_temp: 'task' = self.queue.get()
                 executor.submit(task_temp.run)
 
 

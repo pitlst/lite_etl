@@ -4,4 +4,4 @@ SELECT
     f.age,
     f.department AS '部门',
     f.modification_time AS '最后修改时间'
-FROM employee_performance f
+FROM test_schema.employee_performance f
