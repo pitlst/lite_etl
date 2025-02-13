@@ -22,7 +22,6 @@ class task_connect_with:
         if exc_type is not None:  # 如果有异常发生
             self.log.critical("报错类型：" + str(exc_type))
             self.log.critical("报错内容：" + str(exc_value))
-            self.log.critical("报错堆栈信息：" + str(traceback_info.format_exc()))
             # 回退操作
             self.connection.rollback()
         else:
