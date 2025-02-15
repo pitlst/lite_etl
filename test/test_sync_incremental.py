@@ -68,14 +68,14 @@ def main():
         ))
         connect.commit()
     
-    with LOCALDB.cursor() as m_LOCALDB:
+    with LOCALDB.cursor() as m_cursor:
         print("添加本地的测试数据")
-        m_LOCALDB.execute(
+        m_cursor.execute(
             '''
             CREATE SCHEMA IF NOT EXISTS ods
             '''
         )
-        m_LOCALDB.execute(
+        m_cursor.execute(
             '''
             CREATE OR REPLACE TABLE ods.test_sync_incremental (
                 "员工编号" BIGINT PRIMARY KEY NOT NULL,
@@ -86,7 +86,7 @@ def main():
             )
             '''
         )
-        m_LOCALDB.execute(
+        m_cursor.execute(
             '''
             INSERT INTO ods.test_sync_incremental ("员工编号", "员工姓名", age, "部门") VALUES
             (1, '员工 1', 25, '开发部'),
@@ -96,7 +96,7 @@ def main():
             (5, '员工 5', 27, '人力资源部')
             '''
         )
-        m_LOCALDB.execute(
+        m_cursor.execute(
             '''
             CREATE OR REPLACE TABLE ods.test_sync_incremental_incremental (
                 "员工编号" INT PRIMARY KEY NOT NULL,
@@ -104,7 +104,7 @@ def main():
             )
             '''
         )
-        m_LOCALDB.execute(
+        m_cursor.execute(
             '''
             INSERT INTO ods.test_sync_incremental_incremental ("员工编号", "最后修改时间") 
             SELECT "员工编号", "最后修改时间" FROM ods.test_sync_incremental;
@@ -113,7 +113,23 @@ def main():
     
     print("运行任务")
     temp_task.run()
+    with LOCALDB.cursor() as m_cursor:
+        print("检查数据是否正确")
+        actual_data = m_cursor.execute(
+            '''
+            SELECT * FROM ods.test_sync_incremental;
+            '''
+        ).fetch_df()
+        print(actual_data)
+        expected_data = pd.DataFrame([
+            (1, '员工 1', 25, '开发部'),
+            (2, '员工 2', 28, '设计部'), 
+            (3, '员工 3', 30, '测试部'),
+            (4, '员工 4', 22, '市场部'),
+            (5, '员工 5', 27, '人力资源部')
+        ], columns=["员工编号", "员工姓名", "age", "部门"])
 
+        assert actual_data.equals(expected_data), "数据不匹配"
 
 if __name__ == "__main__":
     main()

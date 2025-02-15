@@ -212,7 +212,7 @@ class incremental_task(task):
                     '''
                 )
                 # 然后更新变更的数据
-                column_name_list = m_cursor.execute(
+                column_name_list = m_cursor.execute(                    
                     f'''
                     SELECT column_name
                     FROM information_schema.columns
@@ -227,6 +227,13 @@ class incremental_task(task):
                     FROM data_sync_diff
                     WHERE {self.options.local_schema}.{self.options.local_table_name}.{id_name} = data_sync_diff.{id_name}
                     '''
+                )
+                # 最后重新从本地的数据中提取id表
+                local_select_new = exp.Select(expressions=[col.copy() for col in self.incremental_select_colnums]).from_(f"{self.options.local_schema}.{self.options.local_table_name}")
+                m_cursor.execute(
+                    f'''
+                    CREATE OR REPLACE TABLE {self.options.local_schema}.{self.options.local_table_name}_id AS
+                    ''' + optimize(local_select_new).sql(dialect="duckdb")
                 )
                 
                 self.log.info("删除多余的数据")
