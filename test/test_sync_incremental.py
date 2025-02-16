@@ -6,6 +6,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+from utils.config import CONFIG
 from utils.connect import CONNECTER, LOCALDB
 from tasks.incremental import incremental_task, incremental_task_options
 
@@ -18,13 +19,6 @@ pd.set_option('display.max_colwidth', None)  # 设置最大列宽为 None
 def main():
     print("全量数据库同步测试")
     print("创建任务")
-    temp_task = incremental_task(incremental_task_options(name="增量同步测试",
-                                                          sync_sql_path="test/test_sync_incremental.sql",
-                                                          sync_source_connect_name="mysql测试",
-                                                          local_table_name="test_sync_incremental",
-                                                          incremental_comparison_list=[0, 4]
-                                                          )
-                                 )
     with CONNECTER.get_sql("mysql测试").connect() as connect:
         print("创建测试用Schema")
         connect.execute(sqlalchemy.text(
@@ -58,7 +52,27 @@ def main():
             ('员工 2', 28, '设计部'),
             ('员工 3', 30, '测试部'),
             ('员工 4', 22, '市场部'),
-            ('员工 5', 27, '人力资源部'),
+            ('员工 5', 27, '人力资源部');
+            '''
+        ))
+        connect.commit()
+    
+    
+    print("第一次运行任务-退化为全量执行")
+    incremental_task(incremental_task_options(name="增量同步测试",
+                                            sync_sql_path="test/test_sync_incremental.sql",
+                                            sync_source_connect_name="mysql测试",
+                                            local_table_name="test_sync_incremental",
+                                            incremental_comparison_list=[0, 4],
+                                            is_delete=True
+                                            )
+    ).run()
+    
+    with CONNECTER.get_sql("mysql测试").connect() as connect:
+        print("添加mysql测试的测试数据")
+        connect.execute(sqlalchemy.text(
+            '''
+            INSERT INTO test_schema.employee_performance (name, age, department) VALUES
             ('员工 6', 35, '运营部'),
             ('员工 7', 33, '财务部'),
             ('员工 8', 26, '开发部'),
@@ -68,68 +82,32 @@ def main():
         ))
         connect.commit()
     
-    with LOCALDB.cursor() as m_cursor:
-        print("添加本地的测试数据")
-        m_cursor.execute(
-            '''
-            CREATE SCHEMA IF NOT EXISTS ods
-            '''
-        )
-        m_cursor.execute(
-            '''
-            CREATE OR REPLACE TABLE ods.test_sync_incremental (
-                "员工编号" BIGINT PRIMARY KEY NOT NULL,
-                "员工姓名" VARCHAR(50) NOT NULL,
-                age INT NOT NULL,
-                "部门" VARCHAR(100) NOT NULL,
-                "最后修改时间" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            '''
-        )
-        m_cursor.execute(
-            '''
-            INSERT INTO ods.test_sync_incremental ("员工编号", "员工姓名", age, "部门") VALUES
-            (1, '员工 1', 25, '开发部'),
-            (2, '员工 2', 28, '设计部'),
-            (3, '员工 3', 30, '测试部'),
-            (4, '员工 4', 22, '市场部'),
-            (5, '员工 5', 27, '人力资源部')
-            '''
-        )
-        m_cursor.execute(
-            '''
-            CREATE OR REPLACE TABLE ods.test_sync_incremental_incremental (
-                "员工编号" INT PRIMARY KEY NOT NULL,
-                "最后修改时间" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            '''
-        )
-        m_cursor.execute(
-            '''
-            INSERT INTO ods.test_sync_incremental_incremental ("员工编号", "最后修改时间") 
-            SELECT "员工编号", "最后修改时间" FROM ods.test_sync_incremental;
-            '''
-        )
+    print("第二次运行任务-测试增量执行")
+    incremental_task(incremental_task_options(name="增量同步测试2",
+                                            sync_sql_path="test/test_sync_incremental.sql",
+                                            sync_source_connect_name="mysql测试",
+                                            local_table_name="test_sync_incremental",
+                                            incremental_comparison_list=[0, 4],
+                                            is_delete=True
+                                            )
+    ).run()
     
-    print("运行任务")
-    temp_task.run()
     with LOCALDB.cursor() as m_cursor:
         print("检查数据是否正确")
         actual_data = m_cursor.execute(
             '''
-            SELECT * FROM ods.test_sync_incremental;
+            SELECT * FROM ods.test_sync_incremental
             '''
         ).fetch_df()
-        print(actual_data)
-        expected_data = pd.DataFrame([
-            (1, '员工 1', 25, '开发部'),
-            (2, '员工 2', 28, '设计部'), 
-            (3, '员工 3', 30, '测试部'),
-            (4, '员工 4', 22, '市场部'),
-            (5, '员工 5', 27, '人力资源部')
-        ], columns=["员工编号", "员工姓名", "age", "部门"])
 
-        assert actual_data.equals(expected_data), "数据不匹配"
+    
+    with open(os.path.join(CONFIG.SELECT_PATH, "test/test_sync_incremental.sql"), "r", encoding="utf-8") as file:
+        sync_sql = file.read()
+    with CONNECTER.get_sql("mysql测试").connect() as connect:
+        data_group = pd.read_sql_query(sqlalchemy.text(sync_sql), connect)
+        
+    assert actual_data.equals(data_group) , "数据不匹配"
+
 
 if __name__ == "__main__":
     main()
