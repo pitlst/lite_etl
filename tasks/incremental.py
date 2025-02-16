@@ -237,6 +237,13 @@ class incremental_task(task):
                 target_connect_schema=self.options.local_schema,
                 chunksize=self.options.chunksize
             ))
+    
+    def trans_total_sync(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
+        '''将任务转换成全量同步'''
+        self.total_sync()
+        self.log.info("替换对应id索引")
+        self.replace_id(m_cursor)
+        self.update_local(m_cursor)
 
     def delete_sync(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
         '''删除多余的数据'''
@@ -265,8 +272,6 @@ class incremental_task(task):
 
     def task_main(self) -> None:
         self.log.info("运行增量检查")
-        
-        
         data_group = None
         with task_connect_with(self.source_client, self.log) as connection:
             data_group = pd.read_sql_query(sqlalchemy.text(self.incremental_sql_str), connection)
@@ -283,19 +288,13 @@ class incremental_task(task):
             # 对于本地根本就没有相关表的直接退化为全量同步
             if self.id_name is None:
                 self.log.info("本地无缓存第一次同步，转化为全量同步")
-                self.total_sync()
-                self.log.info("替换对应id索引")
-                self.replace_id(m_cursor)
-                self.update_local(m_cursor)
+                self.trans_total_sync(m_cursor)
                 return
             source_id_struct = self.get_table_struct(m_cursor, self.options.temp_table_schema, self.options.local_table_name + "_id")
             # 用于索引是否增量的结构发生变化直接变换为全量同步
             if len(source_id_struct) == 0 or len(self.local_id_struct) == 0 or not self.local_id_struct.equals(source_id_struct):
                 self.log.info("结构发生变化，转化为全量同步")
-                self.total_sync()
-                self.log.info("替换对应id索引")
-                self.replace_id(m_cursor)
-                self.update_local(m_cursor)
+                self.trans_total_sync(m_cursor)
                 return
 
             self.log.info("运行增量数据同步")
@@ -304,17 +303,11 @@ class incremental_task(task):
             # 异常仍会正常抛出
             if not self.get_new(m_cursor):
                 self.log.info("结构发生变化或变更数过大，转化为全量同步")
-                self.total_sync()
-                self.log.info("替换对应id索引")
-                self.replace_id(m_cursor)
-                self.update_local(m_cursor)
+                self.trans_total_sync(m_cursor)
                 return
             if not self.get_diff(m_cursor):
                 self.log.info("结构发生变化或变更数过大，转化为全量同步")
-                self.total_sync()
-                self.log.info("替换对应id索引")
-                self.replace_id(m_cursor)
-                self.update_local(m_cursor)
+                self.trans_total_sync(m_cursor)
                 return
 
             self.log.info("运行本地数据更改")
