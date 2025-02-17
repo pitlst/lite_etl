@@ -17,5 +17,8 @@ class config:
     TABLE_PATH = os.path.join(SOURCE_PATH, "file")
     # 调度器线程池的缺省值
     THREAD_MAX_NUM_DEFLAUTE = 5
+    # 对应看板前端开启的IP和端口
+    BI_HOST = "127.0.0.1" if DEBUG else "0.0.0.0"
+    BI_PORT = 10086
 
 CONFIG = config()

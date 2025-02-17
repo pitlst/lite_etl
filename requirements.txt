@@ -2,7 +2,6 @@ fastapi
 uvicorn[standard]
 pandas 
 numpy
-Plotly
 colorlog
 toml
 sqlalchemy[asyncio]
@@ -14,3 +13,6 @@ pymongo
 clickhouse-connect
 clickhouse-sqlalchemy
 duckdb
+
+dash
+plotly

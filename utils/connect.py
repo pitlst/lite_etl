@@ -77,4 +77,7 @@ class connecter:
 
 
 CONNECTER = connecter()
+# 支持写入的duckdb连接，仅有ETL的任务线程使用
 LOCALDB = duckdb.connect(os.path.realpath(os.path.join(CONFIG.LOCAL_DB_PATH, "data.db")))
+# 近支持
+LOCALDB_READONLY = duckdb.connect(os.path.realpath(os.path.join(CONFIG.LOCAL_DB_PATH, "data.db")), read_only=True)
