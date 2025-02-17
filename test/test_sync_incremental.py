@@ -9,6 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from utils.config import CONFIG
 from utils.connect import CONNECTER, LOCALDB
 from tasks.incremental import incremental_task, incremental_task_options
+from tasks.scheduler import SCHEDULER
 
 pd.set_option('display.max_rows', None)  # 显示所有行
 pd.set_option('display.max_columns', None)  # 显示所有列
@@ -59,14 +60,17 @@ def main():
     
     
     print("第一次运行任务-退化为全量执行")
-    incremental_task(incremental_task_options(name="增量同步测试",
+    temp = incremental_task(incremental_task_options(name="增量同步测试",
                                             sync_sql_path="test/test_sync_incremental.sql",
                                             sync_source_connect_name="mysql测试",
                                             local_table_name="test_sync_incremental",
                                             incremental_comparison_list=[0, 4],
                                             is_delete=True
                                             )
-    ).run()
+    )
+    temp.run()
+    for temp_e in temp.next:
+        temp_e.run()
     
     with CONNECTER.get_sql("mysql测试").connect() as connect:
         print("添加mysql测试的测试数据")
@@ -83,14 +87,17 @@ def main():
         connect.commit()
     
     print("第二次运行任务-测试增量执行")
-    incremental_task(incremental_task_options(name="增量同步测试2",
+    temp = incremental_task(incremental_task_options(name="增量同步测试2",
                                             sync_sql_path="test/test_sync_incremental.sql",
                                             sync_source_connect_name="mysql测试",
                                             local_table_name="test_sync_incremental",
                                             incremental_comparison_list=[0, 4],
                                             is_delete=True
                                             )
-    ).run()
+    )
+    temp.run()
+    for temp_e in temp.next:
+        temp_e.run()
     
     with LOCALDB.cursor() as m_cursor:
         print("检查数据是否正确")

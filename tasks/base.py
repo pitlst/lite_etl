@@ -35,7 +35,7 @@ class task(ABC):
         self.name = name
         self.is_run = threading.Event()
         self.log = make_logger(self.name)
-        self.next = []
+        self.next: list['task'] = []
         
     def then(self, input_task: 'task') -> 'task':
         self.next.append(input_task)
