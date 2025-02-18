@@ -1,36 +1,26 @@
 import os
-from typing import Any
 import duckdb
 import pymongo
 import sqlalchemy
-import threading
+from typing import Any
 from urllib.parse import quote_plus
 from utils.config import CONFIG
 
-
 class connecter:
-    _instance = None
-    _sql_connect: dict[str, sqlalchemy.Engine] = {}
-    _nosql_connect: dict[str, pymongo.MongoClient] = {}
-    _lock = threading.Lock()
-    __slot__ = ["_instance", "_lock", "_sql_connect", "_nosql_connect"]
-
     def __init__(self) -> None:
+        self._sql_connect: dict[str, sqlalchemy.Engine] = {}
+        self._nosql_connect: dict[str, pymongo.MongoClient] = {}
         self.make_client(CONFIG.CONNECT_CONFIG)
-
-    def __new__(cls, *args, **kwargs):
-        '''基于锁的多线程安全单例'''
-        if not cls._instance:
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super(connecter, cls).__new__(cls)
-        return cls._instance
 
     def make_client(self, connect_config: dict[str, Any]) -> None:
         '''
         创建数据连接的工厂类
         用于在对应进程中创建对应进程的数据库连接
         '''
+        print(1)
+        self._logger: duckdb.DuckDBPyConnection = duckdb.connect(os.path.realpath(os.path.join(CONFIG.LOCAL_DB_PATH, "logger.db")))
+        self._local: duckdb.DuckDBPyConnection = duckdb.connect(os.path.realpath(os.path.join(CONFIG.LOCAL_DB_PATH, "data.db")))
+        # 其他的连接，跟着配置文件走
         for ch in connect_config:
             temp = connect_config[ch]
             if temp["type"] == "oracle":
@@ -66,18 +56,17 @@ class connecter:
     def get_sql(self, key: str) -> sqlalchemy.engine.Engine:
         if key not in self._sql_connect.keys():
             raise ValueError("不存在对应的连接")
-        with self._lock:
-            return self._sql_connect[key]
+        return self._sql_connect[key]
 
     def get_nosql(self, key: str) -> pymongo.MongoClient:
         if key not in self._nosql_connect.keys():
             raise ValueError("不存在对应的连接")
-        with self._lock:
-            return self._nosql_connect[key]
-
+        return self._nosql_connect[key]
+    
+    def get_logger(self) -> duckdb.DuckDBPyConnection:
+        return self._logger.cursor()
+    
+    def get_local(self) -> duckdb.DuckDBPyConnection:
+        return self._local.cursor()
 
 CONNECTER = connecter()
-# 支持写入的duckdb连接，仅有ETL的任务线程使用
-LOCALDB = duckdb.connect(os.path.realpath(os.path.join(CONFIG.LOCAL_DB_PATH, "data.db")))
-# 近支持
-LOCALDB_READONLY = duckdb.connect(os.path.realpath(os.path.join(CONFIG.LOCAL_DB_PATH, "data.db")), read_only=True)

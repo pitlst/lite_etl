@@ -7,9 +7,8 @@ import os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from utils.config import CONFIG
-from utils.connect import CONNECTER, LOCALDB
+from utils.connect import CONNECTER
 from tasks.incremental import incremental_task, incremental_task_options
-from tasks.scheduler import SCHEDULER
 
 pd.set_option('display.max_rows', None)  # 显示所有行
 pd.set_option('display.max_columns', None)  # 显示所有列
@@ -99,7 +98,7 @@ def main():
     for temp_e in temp.next:
         temp_e.run()
     
-    with LOCALDB.cursor() as m_cursor:
+    with CONNECTER.get_local().cursor() as m_cursor:
         print("检查数据是否正确")
         actual_data = m_cursor.execute(
             '''

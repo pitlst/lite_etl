@@ -4,7 +4,7 @@ import pandas as pd
 import sqlalchemy
 import sqlglot
 from utils.config import CONFIG
-from utils.connect import CONNECTER, LOCALDB
+from utils.connect import CONNECTER
 from tasks.base import task, task_connect_with
 
 
@@ -67,7 +67,7 @@ class extract_sql(task):
         if data_group is None:
             raise ValueError("未查询到数据或者连接失败")
 
-        with LOCALDB.cursor() as m_cursor:
+        with CONNECTER.get_local() as m_cursor:
             temp_name = self.name + ".temp_data"
             iterator = iter(data_group)
 
@@ -123,7 +123,7 @@ class load_table(task):
 
     def task_main(self) -> None:
         self.log.info("读取数据")
-        with LOCALDB.cursor() as m_cursor:
+        with CONNECTER.get_local() as m_cursor:
             data_group = m_cursor.execute(
                 f'''
                 SELECT * FROM {self.source_connect_schema}.{self.source_table_name}
@@ -171,7 +171,7 @@ class extract_nosql(task):
         self.log.info("读取数据")
         data_group = self.source_coll.find({}, batch_size=self.chunksize)
 
-        with LOCALDB.cursor() as m_cursor:
+        with CONNECTER.get_local() as m_cursor:
             m_cursor.execute(
                 f"""
                 CREATE OR REPLACE TABLE {self.target_connect_schema}.{self.target_table_name} (

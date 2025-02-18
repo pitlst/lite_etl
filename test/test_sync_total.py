@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import sqlalchemy
 import pandas as pd
-from utils.connect import CONNECTER, LOCALDB
+from utils.connect import CONNECTER
 from tasks.sync import sync_sql, extract_sql, extract_nosql, load_table
 
 pd.set_option('display.max_rows', None)  # 显示所有行
@@ -129,7 +129,7 @@ def main_extract_sql():
     print("运行任务")
     temp_task.run()
     print("打印本地表数据")
-    test_data = LOCALDB.sql(f"SELECT * FROM ods.total_sync_test").df()
+    test_data = CONNECTER.get_local().sql(f"SELECT * FROM ods.total_sync_test").df()
     print(test_data)
     df = pd.DataFrame({
         'id': [1, 2, 3],
@@ -182,7 +182,7 @@ def main_extract_nosql():
     print("运行任务")
     temp_task.run()
     print("打印本地表数据")
-    test_data = LOCALDB.sql(f"SELECT document FROM {temp_task.target_connect_schema}.{temp_task.target_table_name}").fetchdf()
+    test_data = CONNECTER.get_local().sql(f"SELECT document FROM {temp_task.target_connect_schema}.{temp_task.target_table_name}").fetchdf()
     print(test_data)
     df = pd.DataFrame({
         'document': [
@@ -205,7 +205,7 @@ def main_load_table():
         target_table_name="total_sync_test"
     )
     print("准备测试数据")
-    with LOCALDB.cursor() as m_cursor:
+    with CONNECTER.get_local().cursor() as m_cursor:
         print("创建表")
         m_cursor.execute(
             '''

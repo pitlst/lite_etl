@@ -7,7 +7,7 @@ from sqlglot.optimizer import optimize
 from sqlglot import exp, condition
 from dataclasses import dataclass, field
 from utils.config import CONFIG
-from utils.connect import LOCALDB, CONNECTER
+from utils.connect import CONNECTER
 from tasks.base import task, task_connect_with
 from tasks.sync import extract_sql
 
@@ -39,7 +39,7 @@ class incremental_task(task):
         self.options = input_options
         # 读取并生成sql的语法树
         self.ast_make()
-        with LOCALDB.cursor() as m_cursor:
+        with CONNECTER.get_local() as m_cursor:
             # 确保本地schema存在
             self.schema_make(m_cursor)
             # 获取当前本地id的缓存
@@ -279,7 +279,7 @@ class incremental_task(task):
             raise ValueError("未查询到数据或者连接失败")
 
         self.log.info("比较相关数据")
-        with LOCALDB.cursor() as m_cursor:
+        with CONNECTER.get_local() as m_cursor:
             m_cursor.execute(
                 f'''
                 CREATE OR REPLACE TABLE {self.options.temp_table_schema}.{self.options.local_table_name}_id AS SELECT * FROM data_group

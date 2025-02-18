@@ -1,8 +1,6 @@
-import os
 import logging
 import colorlog
-import duckdb
-from utils.config import CONFIG
+from utils.connect import CONNECTER
 
 class duckdb_handler(logging.Handler):
     '''将日志写到本地duckDB数据库的自定义handler'''
@@ -10,9 +8,9 @@ class duckdb_handler(logging.Handler):
     def __init__(self, name: str) -> None:
         logging.Handler.__init__(self)
         self.name = name
-        self.connect = duckdb.connect(os.path.join(CONFIG.LOCAL_DB_PATH, "logger.db"))
+        self.cursor = CONNECTER.get_logger()
         # 指定创建时间为默认时间戳，id自动生成
-        self.connect.execute(
+        self.cursor.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {self.name} (
                 {self.columns[0]} TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
@@ -23,15 +21,14 @@ class duckdb_handler(logging.Handler):
         )
         
     def __del__(self):
-        self.connect.close()
+        self.cursor.close()
 
     def emit(self, record) -> None:
         try:
             temp_msg = self.format(record).split(":")
             level = temp_msg[0]
             msg = ":".join(temp_msg[1:])
-            with self.connect.cursor() as m_cursor:
-                m_cursor.execute(f"INSERT INTO {self.name} ({self.columns[1]}, {self.columns[2]}) VALUES (?, ?)", [level, msg])
+            self.cursor.execute(f"INSERT INTO {self.name} ({self.columns[1]}, {self.columns[2]}) VALUES (?, ?)", [level, msg])
         except Exception:
             self.handleError(record)
 
