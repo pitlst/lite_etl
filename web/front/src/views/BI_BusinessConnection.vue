@@ -2,7 +2,9 @@
 import * as echarts from 'echarts';
 import { onMounted, onUnmounted, nextTick } from 'vue';
 import { useCounterStore } from '@/stores/counter';
+import { QuestionCircleOutlined } from '@ant-design/icons-vue'
 
+const deadline = Date.now() + 1000 * 60 * 60 * 20 * 2;
 const store = useCounterStore();
 let myChart = null;
 
@@ -70,7 +72,20 @@ onUnmounted(() => {
         <div class="container">
             <a-row :gutter="[16, 16]">
                 <a-col :span="8">
-                    <a-card>col-8</a-card>
+                    <a-card>
+                        <a-statistic-countdown :value="deadline" style="margin-right: 50px">
+                            <template #title>
+                                <span>Countdown</span>
+                                <a-tooltip color=white placement="right">
+                                    <template #title>
+                                        <span class="tooltip-text">hurry up!</span>
+                                    </template>
+                                    <QuestionCircleOutlined style="margin-left: 5px" />
+                                </a-tooltip>
+                            </template>
+                        </a-statistic-countdown>
+                        <a-typography-paragraph>任务平均耗时</a-typography-paragraph>
+                    </a-card>
                 </a-col>
                 <a-col :span="8">
                     <a-card>col-8</a-card>
@@ -93,6 +108,11 @@ onUnmounted(() => {
 <style>
 .container {
     padding: 24px;
+}
+
+.tooltip-text {
+    color: rgba(0, 0, 0, 0.85);
+    /* Ant Design Vue 的标准黑色文本颜色 */
 }
 
 .echarts_main {
