@@ -13,6 +13,3 @@ pymongo
 clickhouse-connect
 clickhouse-sqlalchemy
 duckdb
-
-dash
-plotly

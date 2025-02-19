@@ -2,8 +2,7 @@
 </script>
 
 <template>
-  <div>hello world</div>
+    <div>hello world</div>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>

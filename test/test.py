@@ -97,74 +97,74 @@
 
 
 
-import dash
-from dash import html, dcc, Output, Input, dash_table
-import dash_bootstrap_components as dbc
-import pandas as pd
+# import dash
+# from dash import html, dcc, Output, Input, dash_table
+# import dash_bootstrap_components as dbc
+# import pandas as pd
 
-# 创建 Dash 应用
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+# # 创建 Dash 应用
+# app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-# 主页面布局
-def layout1():
-    return html.Div(
-        [
-            html.H1("首页"),
-            html.P("欢迎来到首页！"),
-            dcc.Link("跳转到页面 1", href="/page1", className="link"),
-            dcc.Link("跳转到页面 2", href="/page2", className="link"),
-        ],
-        style={"textAlign": "center", "marginTop": "50px"},
-    )
+# # 主页面布局
+# def layout1():
+#     return html.Div(
+#         [
+#             html.H1("首页"),
+#             html.P("欢迎来到首页！"),
+#             dcc.Link("跳转到页面 1", href="/page1", className="link"),
+#             dcc.Link("跳转到页面 2", href="/page2", className="link"),
+#         ],
+#         style={"textAlign": "center", "marginTop": "50px"},
+#     )
 
-# 页面 1 的布局
-def layout2():
-    return html.Div(
-        [
-            html.H1("页面 1"),
-            html.P("这是页面 1 的内容！"),
-            dcc.Link("返回首页", href="/", className="link"),
-            dcc.Link("跳转到页面 2", href="/page2", className="link"),
-        ],
-        style={"textAlign": "center", "marginTop": "50px"},
-    )
+# # 页面 1 的布局
+# def layout2():
+#     return html.Div(
+#         [
+#             html.H1("页面 1"),
+#             html.P("这是页面 1 的内容！"),
+#             dcc.Link("返回首页", href="/", className="link"),
+#             dcc.Link("跳转到页面 2", href="/page2", className="link"),
+#         ],
+#         style={"textAlign": "center", "marginTop": "50px"},
+#     )
 
-# 页面 2 的布局
-def layout3():
-    return html.Div(
-        [
-            html.H1("页面 2"),
-            html.P("这是页面 2 的内容！"),
-            dcc.Link("返回首页", href="/", className="link"),
-            dcc.Link("跳转到页面 1", href="/page1", className="link"),
-        ],
-        style={"textAlign": "center", "marginTop": "50px"},
-    )
+# # 页面 2 的布局
+# def layout3():
+#     return html.Div(
+#         [
+#             html.H1("页面 2"),
+#             html.P("这是页面 2 的内容！"),
+#             dcc.Link("返回首页", href="/", className="link"),
+#             dcc.Link("跳转到页面 1", href="/page1", className="link"),
+#         ],
+#         style={"textAlign": "center", "marginTop": "50px"},
+#     )
 
-# 定义路由路径
-app.config.suppress_callback_exceptions = True
+# # 定义路由路径
+# app.config.suppress_callback_exceptions = True
 
-# 定义应用布局
-app.layout = html.Div(
-    [
-        dcc.Location(id="url", refresh=False),
-        html.Div(id="page-content"),
-    ]
-)
+# # 定义应用布局
+# app.layout = html.Div(
+#     [
+#         dcc.Location(id="url", refresh=False),
+#         html.Div(id="page-content"),
+#     ]
+# )
 
-# 定义回调函数
-@app.callback(
-    Output("page-content", "children"),
-    Input("url", "pathname"),
-)
-def display_page(pathname):
-    if pathname == "/page1":
-        return layout2()
-    elif pathname == "/page2":
-        return layout3()
-    else:
-        return layout1()
+# # 定义回调函数
+# @app.callback(
+#     Output("page-content", "children"),
+#     Input("url", "pathname"),
+# )
+# def display_page(pathname):
+#     if pathname == "/page1":
+#         return layout2()
+#     elif pathname == "/page2":
+#         return layout3()
+#     else:
+#         return layout1()
 
-# 运行应用
-if __name__ == "__main__":
-    app.run_server(debug=True, port=8050)
+# # 运行应用
+# if __name__ == "__main__":
+#     app.run_server(debug=True, port=8050)
