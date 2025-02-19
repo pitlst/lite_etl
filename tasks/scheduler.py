@@ -2,7 +2,6 @@
 import os
 import queue
 import concurrent.futures
-from utils.config import CONFIG
 
 # 仅在类型检查时导入
 from typing import TYPE_CHECKING
@@ -12,20 +11,20 @@ if TYPE_CHECKING:
 
 class scheduler:
     def __init__(self) -> None:
-        self.queue = queue.Queue()
+        self._queue = queue.Queue()
         temp_num = os.cpu_count() if os.cpu_count() is None else 5
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=temp_num)
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=temp_num)
         def main() -> None:            
             while True:
-                task_temp: 'task' = self.queue.get()
-                self.executor.submit(task_temp.run)
-        self.executor.submit(main)
+                task_temp: 'task' = self._queue.get()
+                self._executor.submit(task_temp.run)
+        self._executor.submit(main)
         
     def __del__(self):
-        self.executor.shutdown()
+        self._executor.shutdown()
 
     def add(self, task: 'task') -> None:
-        self.queue.put(task)
+        self._queue.put(task)
 
 
 SCHEDULER = scheduler()

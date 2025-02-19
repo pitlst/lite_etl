@@ -24,7 +24,7 @@
 
 # @dataclass
 # class incremental_task_options:
-#     '''增量同步的函数初始化参数类'''
+#     """增量同步的函数初始化参数类"""
 #     name: str
 #     sync_sql_path: str
 #     sync_source_connect_name: str

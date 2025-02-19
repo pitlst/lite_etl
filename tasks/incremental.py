@@ -14,7 +14,7 @@ from tasks.sync import extract_sql
 
 @dataclass
 class incremental_task_options:
-    '''增量同步的函数初始化参数类'''
+    """增量同步的函数初始化参数类"""
     name: str
     sync_sql_path: str
     sync_source_connect_name: str
@@ -32,7 +32,7 @@ class incremental_task_options:
 
 
 class incremental_task(task):
-    '''增量同步，将增量同步相同的部分抽象出来不做多次编写'''
+    """增量同步，将增量同步相同的部分抽象出来不做多次编写"""
 
     def __init__(self, input_options: incremental_task_options) -> None:
         super().__init__(input_options.name)
@@ -47,7 +47,7 @@ class incremental_task(task):
         self.source_client = CONNECTER.get_sql(self.options.sync_source_connect_name)
 
     def ast_make(self) -> None:
-        '''将任务执行过程中所需要的sql语法树提前在初始化阶段生成好'''
+        """将任务执行过程中所需要的sql语法树提前在初始化阶段生成好"""
         # 保存主表查询模板的语法树便于运行时替换
         with open(os.path.join(CONFIG.SELECT_PATH, self.options.sync_sql_path), "r", encoding="utf-8") as file:
             self.sync_sql_ast = sqlglot.parse_one(file.read(), read=CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"])
@@ -76,12 +76,12 @@ class incremental_task(task):
         self.incremental_sql_str = optimize(incremental_ast).sql(dialect=CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"])
 
     def update_local(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
-        '''获取当前本地id的缓存'''
+        """获取当前本地id的缓存"""
         self.local_id_struct = self.get_table_struct(m_cursor, self.options.local_schema, self.options.local_table_name + "_id")
         self.id_name = str(self.local_id_struct['column_name'][0]) if len(self.local_id_struct) != 0 else None
 
     def schema_make(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
-        '''确保对应的schema存在'''
+        """确保对应的schema存在"""
         m_cursor.execute(
             f'''
             CREATE SCHEMA IF NOT EXISTS {self.options.local_schema}
@@ -95,7 +95,7 @@ class incremental_task(task):
 
     @staticmethod
     def where_add(input_ast: exp.Expression, id_name: exp.Column | exp.Alias, id_list: list[str], dialect: str | None = None) -> str:
-        '''对语法树添加筛选条件并生成'''
+        """对语法树添加筛选条件并生成"""
         if len(id_list) != 0:
             in_condition = exp.In(
                 this=id_name.this if isinstance(id_name, exp.Alias) else id_name,
@@ -114,7 +114,7 @@ class incremental_task(task):
 
     @staticmethod
     def get_table_struct(m_cursor: duckdb.DuckDBPyConnection, schema: str, table: str) -> pd.DataFrame:
-        '''获取本地表的表结构'''
+        """获取本地表的表结构"""
         return m_cursor.execute(
             f'''
             SELECT column_name, data_type, is_nullable
@@ -124,7 +124,7 @@ class incremental_task(task):
         ).fetchdf()
 
     def replace_id(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
-        '''从缓存替换索引'''
+        """从缓存替换索引"""
         m_cursor.execute(
             f'''
             CREATE OR REPLACE TABLE {self.options.local_schema}.{self.options.local_table_name}_id AS
@@ -133,14 +133,14 @@ class incremental_task(task):
         )
 
     def get_new(self, m_cursor: duckdb.DuckDBPyConnection) -> bool:
-        '''获取新出现的数据'''
+        """获取新出现的数据"""
         df_new = m_cursor.execute(
-            f"""
+            f'''
             SELECT a.{self.id_name}
             FROM {self.options.temp_table_schema}.{self.options.local_table_name}_id AS a
             LEFT JOIN {self.options.local_schema}.{self.options.local_table_name}_id AS b ON a.{self.id_name} = b.{self.id_name}
             WHERE b.{self.id_name} IS NULL
-            """
+            '''
         ).fetchdf()
         sync_add_sql_str = self.where_add(
             self.sync_sql_ast,
@@ -173,14 +173,14 @@ class incremental_task(task):
         return True
 
     def get_diff(self, m_cursor: duckdb.DuckDBPyConnection) -> bool:
-        '''获取出现变更的数据'''
+        """获取出现变更的数据"""
         query_sql = sqlglot.parse_one(
-            sql=f"""
+            sql=f'''
             SELECT a.{self.id_name}
             FROM {self.options.temp_table_schema}.{self.options.local_table_name}_id AS a
             LEFT JOIN {self.options.local_schema}.{self.options.local_table_name}_id AS b ON a.{self.id_name} = b.{self.id_name}
             WHERE NOT b.{self.id_name} IS NULL
-            """,
+            ''',
             read="duckdb"
         )
         temp_where = query_sql.find(exp.Where) 
@@ -219,7 +219,7 @@ class incremental_task(task):
         return True
 
     def total_sync(self) -> None:
-        '''全量同步'''
+        """全量同步"""
         self.then(extract_sql(
             name=self.options.name + "_total",
             source_sql_or_path=self.sync_sql_str,
@@ -239,21 +239,21 @@ class incremental_task(task):
             ))
     
     def trans_total_sync(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
-        '''将任务转换成全量同步'''
+        """将任务转换成全量同步"""
         self.total_sync()
         self.log.info("替换对应id索引")
         self.replace_id(m_cursor)
         self.update_local(m_cursor)
 
     def delete_sync(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
-        '''删除多余的数据'''
+        """删除多余的数据"""
         df_disapp = m_cursor.execute(
-            f"""
+            f'''
             SELECT a.{self.id_name}
             FROM {self.options.local_schema}.{self.options.local_table_name}_id AS a
             LEFT JOIN {self.options.temp_table_schema}.{self.options.local_table_name}_id AS b ON a.{self.id_name} = b.{self.id_name}
             WHERE b.{self.id_name} IS NULL
-            """
+            '''
         ).fetchdf()
         if len(df_disapp) != 0:
             delete_sql = sqlglot.parse_one(

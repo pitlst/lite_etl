@@ -8,7 +8,7 @@ from utils.logger import make_logger
 from tasks.scheduler import SCHEDULER
     
 class task_connect_with:
-    '''用来处理连接异常的上下文管理器'''
+    """用来处理连接异常的上下文管理器"""
     def __init__(self, engine: sqlalchemy.engine.Engine, log: logging.Logger) -> None:
         self.engine = engine
         self.connection = engine.connect()
@@ -30,7 +30,7 @@ class task_connect_with:
         return True
 
 class task(ABC):
-    '''所有任务的抽象'''
+    """所有任务的抽象"""
     def __init__(self, name: str) -> None:
         self.name = name
         self.is_run = threading.Event()

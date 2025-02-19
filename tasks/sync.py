@@ -9,7 +9,7 @@ from tasks.base import task, task_connect_with
 
 
 def is_path_or_sql(input_string):
-    '''用于判断是路径还是sql'''
+    """用于判断是路径还是sql"""
     # 定义路径的常见分隔符
     path_separators = ['/', '\\', '.']
     # 定义 SQL 的常见关键字
@@ -28,7 +28,7 @@ def is_path_or_sql(input_string):
 
 
 def check_sql(source_sql_or_path: str, source_connect_name: str) -> str:
-    '''从文件读取并检查用于查询的sql是否正确'''
+    """从文件读取并检查用于查询的sql是否正确"""
     label = is_path_or_sql(source_sql_or_path)
     if label is None:
         raise ValueError("输入的sql路径或sql不正确")
@@ -42,7 +42,7 @@ def check_sql(source_sql_or_path: str, source_connect_name: str) -> str:
 
 
 class extract_sql(task):
-    '''通过sql的全量抽取到本地存储'''
+    """通过sql的全量抽取到本地存储"""
 
     def __init__(self,
                  name: str,
@@ -102,7 +102,7 @@ class extract_sql(task):
 
 
 class load_table(task):
-    '''将本地存储的数据加载到目标存储中'''
+    """将本地存储的数据加载到目标存储中"""
 
     def __init__(self,
                  name: str,
@@ -173,29 +173,29 @@ class extract_nosql(task):
 
         with CONNECTER.get_local() as m_cursor:
             m_cursor.execute(
-                f"""
+                f'''
                 CREATE OR REPLACE TABLE {self.target_connect_schema}.{self.target_table_name} (
                     id VARCHAR PRIMARY KEY,
                     document JSON
                 )
-                """
+                '''
             )
             temp_list = []
             for documents in data_group:
                 temp_list.append([str(documents.pop('_id')), json.dumps(documents)])
                 if len(temp_list) >= self.chunksize:
                     m_cursor.executemany(
-                        f"""
+                        f'''
                             INSERT OR IGNORE INTO {self.target_connect_schema}.{self.target_table_name} (id, document)
                             VALUES (?, ?)
-                        """, temp_list)
+                        ''', temp_list)
                     temp_list = []
             if len(temp_list) != 0:
                 m_cursor.executemany(
-                    f"""
+                    f'''
                         INSERT OR IGNORE INTO {self.target_connect_schema}.{self.target_table_name} (id, document)
                         VALUES (?, ?)
-                    """, temp_list)
+                    ''', temp_list)
 
 
 class sync_sql(task):
