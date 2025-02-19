@@ -12,7 +12,7 @@ class duckdb_handler(logging.Handler):
         # 指定创建时间为默认时间戳，id自动生成
         self.cursor.execute(
             f'''
-            CREATE TABLE IF NOT EXISTS {self.name} (
+            CREATE TABLE IF NOT EXISTS "{self.name}" (
                 {self.columns[0]} TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
                 {self.columns[1]} VARCHAR, 
                 {self.columns[2]} VARCHAR

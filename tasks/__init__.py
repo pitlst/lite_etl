@@ -1,3 +1,5 @@
+import time
+from utils.config import CONFIG
 from tasks.base import task
 from tasks.scheduler import SCHEDULER
 from tasks.sync import extract_sql, sync_sql, extract_nosql, load_table
@@ -148,5 +150,12 @@ def task_init() -> list[task]:
 
 def task_run(input_tasks: list[task]) -> None:
     """运行任务"""
+    # 首次运行不等待间隔
     for task in input_tasks:
         SCHEDULER.add(task)
+    while True:
+        # 只有所有任务同步完成再进行
+        if SCHEDULER.pause():
+            time.sleep(CONFIG.INTERVAL_DURATION)
+            for task in input_tasks:
+                SCHEDULER.add(task)

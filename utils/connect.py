@@ -13,11 +13,10 @@ class connecter:
         self.make_client(CONFIG.CONNECT_CONFIG)
 
     def make_client(self, connect_config: dict[str, Any]) -> None:
-        '''
+        """
         创建数据连接的工厂类
         用于在对应进程中创建对应进程的数据库连接
-        '''
-        print(1)
+        """
         self._logger: duckdb.DuckDBPyConnection = duckdb.connect(os.path.realpath(os.path.join(CONFIG.LOCAL_DB_PATH, "logger.db")))
         self._local: duckdb.DuckDBPyConnection = duckdb.connect(os.path.realpath(os.path.join(CONFIG.LOCAL_DB_PATH, "data.db")))
         # 其他的连接，跟着配置文件走
