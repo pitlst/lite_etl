@@ -1,6 +1,5 @@
 
 import os
-import threading
 import queue
 import concurrent.futures
 from utils.config import CONFIG
@@ -12,34 +11,21 @@ if TYPE_CHECKING:
 
 
 class scheduler:
-    _instance = None
-    _lock = threading.Lock()
-
     def __init__(self) -> None:
         self.queue = queue.Queue()
-
-    def __new__(cls, *args, **kwargs):
-        '''基于锁的多线程安全单例'''
-        if not cls._instance:
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super(scheduler, cls).__new__(cls)
-        return cls._instance
+        temp_num = os.cpu_count() if os.cpu_count() is None else 5
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=temp_num)
+        def main() -> None:            
+            while True:
+                task_temp: 'task' = self.queue.get()
+                self.executor.submit(task_temp.run)
+        self.executor.submit(main)
+        
+    def __del__(self):
+        self.executor.shutdown()
 
     def add(self, task: 'task') -> None:
         self.queue.put(task)
-
-    def run(self) -> None:
-        temp_num = os.cpu_count()
-        if temp_num is None:
-            temp_num = CONFIG.THREAD_MAX_NUM_DEFLAUTE
-        else:
-            temp_num *= 2
-            
-        with concurrent.futures.ThreadPoolExecutor(max_workers=temp_num) as executor:
-            while True:
-                task_temp: 'task' = self.queue.get()
-                executor.submit(task_temp.run)
 
 
 SCHEDULER = scheduler()
