@@ -1,6 +1,6 @@
 SELECT
 	site.GID AS "id",
-	to_char (site.MODIFY_DATE, 'yyyy-MM-dd') AS "修改时间",
+	site.MODIFY_DATE AS "修改时间",
 	p.uda_pro_code AS "项目号",
 	p.uda_car_code AS "车号",
 	p.uda_singercar_code AS "节车号",

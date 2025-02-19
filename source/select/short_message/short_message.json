@@ -1,9 +1,0 @@
-{
-    "attention": {
-        "id": "msg.fid",
-        "columns": [
-            "msg.FSENTTIME"
-        ]
-    },
-    "entry": {}
-}

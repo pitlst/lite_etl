@@ -37,7 +37,7 @@ SELECT
               WHEN 'G' THEN '作废'
               WHEN 'H' THEN '转交中'
        END AS "任务状态",
-       CASE bill.fk_crrc_jobstatus
+       CASE bill.fk_crrc_obsource
               WHEN 'change' THEN '变更执行单'
               WHEN 'back' THEN '返工执行单'
        END AS "任务来源",
