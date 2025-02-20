@@ -28,7 +28,7 @@ class duckdb_handler(logging.Handler):
             temp_msg = self.format(record).split(":")
             level = temp_msg[0]
             msg = ":".join(temp_msg[1:])
-            self.cursor.execute(f"INSERT INTO {self.name} ({self.columns[1]}, {self.columns[2]}) VALUES (?, ?)", [level, msg])
+            self.cursor.execute(f"INSERT INTO \"{self.name}\" ({self.columns[1]}, {self.columns[2]}) VALUES (?, ?)", [level, msg])
         except Exception:
             self.handleError(record)
 

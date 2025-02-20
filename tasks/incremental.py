@@ -49,14 +49,15 @@ class incremental_task(task):
     def ast_make(self) -> None:
         """将任务执行过程中所需要的sql语法树提前在初始化阶段生成好"""
         # 保存主表查询模板的语法树便于运行时替换
+        db_type = CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"]
         with open(os.path.join(CONFIG.SELECT_PATH, self.options.sync_sql_path), "r", encoding="utf-8") as file:
-            self.sync_sql_ast = sqlglot.parse_one(file.read(), read=CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"])
-        self.sync_sql_str = optimize(self.sync_sql_ast).sql(dialect=CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"])
+            self.sync_sql_ast = sqlglot.parse_one(file.read(), read=db_type)
+        self.sync_sql_str = optimize(self.sync_sql_ast, dialect=db_type).sql(dialect=db_type)
         # 保存其他分录查询模板的语法树便于运行时替换
         self.other_entry_ast = {}
         for other_entry_key, other_entry_value in self.options.other_entry_sql_path.items():
             with open(os.path.join(CONFIG.SELECT_PATH, other_entry_value), "r", encoding="utf-8") as file:
-                self.other_entry_ast[other_entry_key] = sqlglot.parse_one(file.read(), read=CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"])
+                self.other_entry_ast[other_entry_key] = sqlglot.parse_one(file.read(), read=db_type)
 
         # 对于超过select列数的incremental_comparison_list会直接跳过
         self.incremental_select_colnums: list[exp.Column | exp.Alias] = []
@@ -71,9 +72,10 @@ class incremental_task(task):
         incremental_where = self.sync_sql_ast.find(exp.Where)
         if not incremental_where is None:
             incremental_where = incremental_where.copy()
-        incremental_select_new = exp.Select(expressions=[col.copy() for col in self.incremental_select_colnums])
-        incremental_ast = incremental_select_new.from_(incremental_from).where(incremental_where)
-        self.incremental_sql_str = optimize(incremental_ast).sql(dialect=CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"])
+        incremental_ast = exp.Select(expressions=[col.copy() for col in self.incremental_select_colnums])
+        incremental_ast.set("from", incremental_from)
+        incremental_ast.set("where", incremental_where)
+        self.incremental_sql_str = optimize(incremental_ast, dialect=db_type).sql(dialect=db_type)
 
     def update_local(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
         """获取当前本地id的缓存"""
@@ -84,12 +86,12 @@ class incremental_task(task):
         """确保对应的schema存在"""
         m_cursor.execute(
             f'''
-            CREATE SCHEMA IF NOT EXISTS {self.options.local_schema}
+            CREATE SCHEMA IF NOT EXISTS "{self.options.local_schema}"
             '''
         )
         m_cursor.execute(
             f'''
-            CREATE SCHEMA IF NOT EXISTS {self.options.temp_table_schema}
+            CREATE SCHEMA IF NOT EXISTS "{self.options.temp_table_schema}"
             '''
         )
 
@@ -127,8 +129,8 @@ class incremental_task(task):
         """从缓存替换索引"""
         m_cursor.execute(
             f'''
-            CREATE OR REPLACE TABLE {self.options.local_schema}.{self.options.local_table_name}_id AS
-            SELECT * from {self.options.temp_table_schema}.{self.options.local_table_name}_id
+            CREATE OR REPLACE TABLE "{self.options.local_schema}"."{self.options.local_table_name}_id" AS
+            SELECT * from "{self.options.temp_table_schema}"."{self.options.local_table_name}_id"
             '''
         )
 
@@ -136,10 +138,10 @@ class incremental_task(task):
         """获取新出现的数据"""
         df_new = m_cursor.execute(
             f'''
-            SELECT a.{self.id_name}
-            FROM {self.options.temp_table_schema}.{self.options.local_table_name}_id AS a
-            LEFT JOIN {self.options.local_schema}.{self.options.local_table_name}_id AS b ON a.{self.id_name} = b.{self.id_name}
-            WHERE b.{self.id_name} IS NULL
+            SELECT a."{self.id_name}"
+            FROM "{self.options.temp_table_schema}"."{self.options.local_table_name}_id" AS a
+            LEFT JOIN "{self.options.local_schema}"."{self.options.local_table_name}_id" AS b ON a."{self.id_name}" = b."{self.id_name}"
+            WHERE b."{self.id_name}" IS NULL
             '''
         ).fetchdf()
         sync_add_sql_str = self.where_add(
@@ -151,7 +153,6 @@ class incremental_task(task):
         data_sync_add = None
         with task_connect_with(self.source_client, self.log) as connection:
             data_sync_add = pd.read_sql_query(sqlalchemy.text(sync_add_sql_str), connection)
-            print(data_sync_add)
         # 检查是否获取到数据
         if data_sync_add is None:
             return False
@@ -162,7 +163,7 @@ class incremental_task(task):
         # 检查这里获取的数据类型是否和本地的缓存相同，以保证直接插入
         m_cursor.execute(
             f'''
-            CREATE OR REPLACE TABLE {self.options.temp_table_schema}.{self.options.local_table_name}_add AS
+            CREATE OR REPLACE TABLE "{self.options.temp_table_schema}"."{self.options.local_table_name}_add" AS
             SELECT * from data_sync_add
             '''
         ).fetchdf()
@@ -176,10 +177,10 @@ class incremental_task(task):
         """获取出现变更的数据"""
         query_sql = sqlglot.parse_one(
             sql=f'''
-            SELECT a.{self.id_name}
-            FROM {self.options.temp_table_schema}.{self.options.local_table_name}_id AS a
-            LEFT JOIN {self.options.local_schema}.{self.options.local_table_name}_id AS b ON a.{self.id_name} = b.{self.id_name}
-            WHERE NOT b.{self.id_name} IS NULL
+            SELECT a."{self.id_name}"
+            FROM "{self.options.temp_table_schema}"."{self.options.local_table_name}_id" AS a
+            LEFT JOIN "{self.options.local_schema}."{self.options.local_table_name}_id" AS b ON a."{self.id_name}" = b."{self.id_name}"
+            WHERE NOT b."{self.id_name}" IS NULL
             ''',
             read="duckdb"
         )
@@ -197,7 +198,6 @@ class incremental_task(task):
         data_sync_diff = None
         with task_connect_with(self.source_client, self.log) as connection:
             data_sync_diff = pd.read_sql_query(sqlalchemy.text(sync_diff_sql_str), connection)
-            print(data_sync_diff)
         # 检查是否获取到数据
         if data_sync_diff is None:
             return False
@@ -208,7 +208,7 @@ class incremental_task(task):
         # 检查这里获取的数据类型是否和本地的缓存相同，以保证直接插入
         m_cursor.execute(
             f'''
-            CREATE OR REPLACE TABLE {self.options.temp_table_schema}.{self.options.local_table_name}_diff AS
+            CREATE OR REPLACE TABLE "{self.options.temp_table_schema}"."{self.options.local_table_name}_diff" AS
             SELECT * from data_sync_diff
             '''
         ).fetchdf()
@@ -249,15 +249,15 @@ class incremental_task(task):
         """删除多余的数据"""
         df_disapp = m_cursor.execute(
             f'''
-            SELECT a.{self.id_name}
-            FROM {self.options.local_schema}.{self.options.local_table_name}_id AS a
-            LEFT JOIN {self.options.temp_table_schema}.{self.options.local_table_name}_id AS b ON a.{self.id_name} = b.{self.id_name}
-            WHERE b.{self.id_name} IS NULL
+            SELECT a."{self.id_name}"
+            FROM "{self.options.local_schema}"."{self.options.local_table_name}_id" AS a
+            LEFT JOIN "{self.options.temp_table_schema}"."{self.options.local_table_name}_id" AS b ON a.{self.id_name} = b.{self.id_name}
+            WHERE b."{self.id_name}" IS NULL
             '''
         ).fetchdf()
         if len(df_disapp) != 0:
             delete_sql = sqlglot.parse_one(
-                sql=f'''DELETE FROM {self.options.local_schema}.{self.options.local_table_name}''',
+                sql=f'''DELETE FROM "{self.options.local_schema}"."{self.options.local_table_name}"''',
                 read="duckdb"
             )
             delete_sql = self.where_add(
@@ -282,7 +282,7 @@ class incremental_task(task):
         with CONNECTER.get_local() as m_cursor:
             m_cursor.execute(
                 f'''
-                CREATE OR REPLACE TABLE {self.options.temp_table_schema}.{self.options.local_table_name}_id AS SELECT * FROM data_group
+                CREATE OR REPLACE TABLE "{self.options.temp_table_schema}"."{self.options.local_table_name}_id" AS SELECT * FROM data_group
                 '''
             )
             # 对于本地根本就没有相关表的直接退化为全量同步
@@ -314,19 +314,19 @@ class incremental_task(task):
             # 先添加变更的数据
             m_cursor.execute(
                 f'''
-                INSERT INTO {self.options.local_schema}.{self.options.local_table_name}
-                SELECT * FROM {self.options.temp_table_schema}.{self.options.local_table_name}_add
+                INSERT INTO "{self.options.local_schema}"."{self.options.local_table_name}"
+                SELECT * FROM "{self.options.temp_table_schema}"."{self.options.local_table_name}_add"
                 '''
             )
             # 然后更新变更的数据
             column_name_list = self.get_table_struct(m_cursor, self.options.local_schema, self.options.local_table_name)["column_name"].astype(str).tolist()[1:]
-            temp_sql = ",".join([f"{column_name} = {self.options.temp_table_schema}.{self.options.local_table_name}_diff.{column_name}" for column_name in column_name_list])
+            temp_sql = ",".join([f"\"{column_name}\" = \"{self.options.temp_table_schema}\".\"{self.options.local_table_name}_diff\".\"{column_name}\"" for column_name in column_name_list])
             m_cursor.execute(
                 f'''
-                UPDATE {self.options.local_schema}.{self.options.local_table_name}
+                UPDATE "{self.options.local_schema}"."{self.options.local_table_name}"
                 SET ''' + temp_sql + f'''
-                FROM {self.options.temp_table_schema}.{self.options.local_table_name}_diff
-                WHERE {self.options.local_schema}.{self.options.local_table_name}.{self.id_name} = {self.options.temp_table_schema}.{self.options.local_table_name}_diff.{self.id_name}
+                FROM "{self.options.temp_table_schema}"."{self.options.local_table_name}_diff"
+                WHERE "{self.options.local_schema}"."{self.options.local_table_name}"."{self.id_name}" = "{self.options.temp_table_schema}"."{self.options.local_table_name}_diff"."{self.id_name}"
                 '''
             )
 
@@ -338,7 +338,7 @@ class incremental_task(task):
                 ).from_(f"{self.options.local_schema}.{self.options.local_table_name}")
                 m_cursor.execute(
                     f'''
-                    CREATE OR REPLACE TABLE {self.options.local_schema}.{self.options.local_table_name}_id AS
+                    CREATE OR REPLACE TABLE "{self.options.local_schema}"."{self.options.local_table_name}_id" AS
                     ''' + optimize(local_select_new).sql(dialect="duckdb")
                 )
             else:

@@ -78,12 +78,12 @@ class extract_sql(task):
             m_cursor.register(temp_name, temp_data)
             m_cursor.execute(
                 f'''
-                CREATE SCHEMA IF NOT EXISTS {self.target_connect_schema}
+                CREATE SCHEMA IF NOT EXISTS "{self.target_connect_schema}"
                 '''
             )
             m_cursor.execute(
                 f'''
-                CREATE OR REPLACE TABLE {self.target_connect_schema}.{self.target_table_name} AS
+                CREATE OR REPLACE TABLE "{self.target_connect_schema}"."{self.target_table_name}" AS
                 SELECT * FROM {temp_name} LIMIT 0
                 '''
             )
@@ -94,7 +94,7 @@ class extract_sql(task):
                 m_cursor.register(temp_name, temp_data)
                 m_cursor.execute(
                     f'''
-                    INSERT INTO {self.target_connect_schema}.{self.target_table_name} SELECT * FROM {temp_name}
+                    INSERT INTO "{self.target_connect_schema}"."{self.target_table_name}" SELECT * FROM {temp_name}
                     '''
                 )
                 # 这里获取下一次填入的数据，如果为none会自动退出循环
@@ -126,7 +126,7 @@ class load_table(task):
         with CONNECTER.get_local() as m_cursor:
             data_group = m_cursor.execute(
                 f'''
-                SELECT * FROM {self.source_connect_schema}.{self.source_table_name}
+                SELECT * FROM "{self.source_connect_schema}"."{self.source_table_name}"
                 '''
             ).fetch_df()
 
@@ -135,9 +135,9 @@ class load_table(task):
             if sqlalchemy.inspect(connection).has_table(self.target_table_name, schema=self.target_connect_schema):
                 self.log.info("存在目标表，正在删除......")
                 if not self.target_connect_schema is None:
-                    connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_connect_schema}.{self.target_table_name}"))
+                    connection.execute(sqlalchemy.text(f"DROP TABLE \"{self.target_connect_schema}\".\"{self.target_table_name}\""))
                 else:
-                    connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_table_name}"))
+                    connection.execute(sqlalchemy.text(f"DROP TABLE \"{self.target_table_name}\""))
             else:
                 self.log.info("不存在目标表")
             self.log.info("写入数据")
@@ -174,7 +174,7 @@ class extract_nosql(task):
         with CONNECTER.get_local() as m_cursor:
             m_cursor.execute(
                 f'''
-                CREATE OR REPLACE TABLE {self.target_connect_schema}.{self.target_table_name} (
+                CREATE OR REPLACE TABLE "{self.target_connect_schema}"."{self.target_table_name}" (
                     id VARCHAR PRIMARY KEY,
                     document JSON
                 )
@@ -186,14 +186,14 @@ class extract_nosql(task):
                 if len(temp_list) >= self.chunksize:
                     m_cursor.executemany(
                         f'''
-                            INSERT OR IGNORE INTO {self.target_connect_schema}.{self.target_table_name} (id, document)
+                            INSERT OR IGNORE INTO "{self.target_connect_schema}"."{self.target_table_name}" (id, document)
                             VALUES (?, ?)
                         ''', temp_list)
                     temp_list = []
             if len(temp_list) != 0:
                 m_cursor.executemany(
                     f'''
-                        INSERT OR IGNORE INTO {self.target_connect_schema}.{self.target_table_name} (id, document)
+                        INSERT OR IGNORE INTO "{self.target_connect_schema}"."{self.target_table_name}" (id, document)
                         VALUES (?, ?)
                     ''', temp_list)
 
@@ -238,9 +238,9 @@ class sync_sql(task):
             if sqlalchemy.inspect(connection).has_table(self.target_table_name, schema=self.target_connect_schema):
                 self.log.info("存在目标表，正在删除......")
                 if not self.target_connect_schema is None:
-                    connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_connect_schema}.{self.target_table_name}"))
+                    connection.execute(sqlalchemy.text(f"DROP TABLE \"{self.target_connect_schema}\".\"{self.target_table_name}\""))
                 else:
-                    connection.execute(sqlalchemy.text(f"DROP TABLE {self.target_table_name}"))
+                    connection.execute(sqlalchemy.text(f"DROP TABLE \"{self.target_table_name}\""))
             else:
                 self.log.info("不存在目标表")
             self.log.info("写入数据")

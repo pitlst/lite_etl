@@ -20,8 +20,8 @@ class scheduler:
                 self._futures.append(self._executor.submit(task_temp.run))
         self._executor.submit(main)
         
-    def __del__(self):
-        self._executor.shutdown()
+    def stop(self):
+        self._executor.shutdown(wait=False, cancel_futures=True)
         
     def pause(self) -> bool:
         return all(future.done() for future in self._futures) and self._queue.empty()

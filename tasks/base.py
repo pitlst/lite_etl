@@ -5,7 +5,7 @@ import traceback
 import logging
 from abc import ABC, abstractmethod
 from utils.logger import make_logger
-from tasks.scheduler import SCHEDULER
+from utils.scheduler import SCHEDULER
     
 class task_connect_with:
     """用来处理连接异常的上下文管理器"""
@@ -22,11 +22,13 @@ class task_connect_with:
         if exc_type is not None:  # 如果有异常发生
             self.log.critical("报错类型：" + str(exc_type))
             self.log.critical("报错内容：" + str(exc_value))
+            self.log.critical("报错堆栈信息：" + str(traceback.format_exc()))
             # 回退操作
             self.connection.rollback()
         else:
             # 如果没有异常，提交事务
-            self.connection.commit()  
+            self.connection.commit()
+        self.connection.close()
         return True
 
 class task(ABC):

@@ -67,5 +67,10 @@ class connecter:
     
     def get_local(self) -> duckdb.DuckDBPyConnection:
         return self._local.cursor()
+    
+    def close_all(self):
+        """关闭所有数据库连接"""
+        for engine in self._sql_connect.values():
+            engine.dispose()
 
 CONNECTER = connecter()

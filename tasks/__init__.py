@@ -1,7 +1,7 @@
 import time
 from utils.config import CONFIG
 from tasks.base import task
-from tasks.scheduler import SCHEDULER
+from utils.scheduler import SCHEDULER
 from tasks.sync import extract_sql, sync_sql, extract_nosql, load_table
 from tasks.incremental import incremental_task, incremental_task_options
 
@@ -12,28 +12,28 @@ def task_init() -> list[task]:
     """
     tasks_group: list[task] = []
     
-    # 改善同步
-    tasks_group.append(incremental_task(
-        incremental_task_options(
-            name = "改善数据同步",
-            sync_sql_path = "ameliorate/ameliorate.sql",
-            sync_source_connect_name = "金蝶云苍穹-正式库",
-            local_table_name = "ameliorate",
-            incremental_comparison_list = [0, 2], 
-            is_delete=True  
-        )
-    ))
-    # 短信同步
-    tasks_group.append(incremental_task(
-        incremental_task_options(
-            name = "短信数据同步",
-            sync_sql_path = "short_message/short_message.sql",
-            sync_source_connect_name = "EAS",
-            local_table_name = "short_message",
-            incremental_comparison_list = [0, 2], 
-            is_delete=False
-        )
-    ))
+    # # 改善同步
+    # tasks_group.append(incremental_task(
+    #     incremental_task_options(
+    #         name = "改善数据同步",
+    #         sync_sql_path = "ameliorate/ameliorate.sql",
+    #         sync_source_connect_name = "金蝶云苍穹-正式库",
+    #         local_table_name = "ameliorate",
+    #         incremental_comparison_list = [0, 2], 
+    #         is_delete=True  
+    #     )
+    # ))
+    # # 短信同步
+    # tasks_group.append(incremental_task(
+    #     incremental_task_options(
+    #         name = "短信数据同步",
+    #         sync_sql_path = "short_message/short_message.sql",
+    #         sync_source_connect_name = "EAS",
+    #         local_table_name = "short_message",
+    #         incremental_comparison_list = [0, 2], 
+    #         is_delete=False
+    #     )
+    # ))
     # 唐渝用-调试项点同步
     tasks_group.append(incremental_task(
         incremental_task_options(
@@ -156,6 +156,7 @@ def task_run(input_tasks: list[task]) -> None:
     while True:
         # 只有所有任务同步完成再进行
         if SCHEDULER.pause():
+            print("本轮任务运行完成，开始等待")
             time.sleep(CONFIG.INTERVAL_DURATION)
             for task in input_tasks:
                 SCHEDULER.add(task)
