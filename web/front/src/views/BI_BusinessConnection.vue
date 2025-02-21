@@ -2,9 +2,9 @@
 import * as echarts from 'echarts';
 import { onMounted, onUnmounted, nextTick } from 'vue';
 import { useCounterStore } from '@/stores/counter';
-import { QuestionCircleOutlined } from '@ant-design/icons-vue'
+import QuestionCircle from '@/components/QuestionCircle.vue'
 
-const deadline = Date.now() + 1000 * 60 * 60 * 20 * 2;
+const deadline = 32;
 const store = useCounterStore();
 let myChart = null;
 
@@ -72,20 +72,13 @@ onUnmounted(() => {
         <div class="container">
             <a-row :gutter="[16, 16]">
                 <a-col :span="8">
-                    <a-card>
-                        <a-statistic-countdown :value="deadline" style="margin-right: 50px">
-                            <template #title>
-                                <span>Countdown</span>
-                                <a-tooltip color=white placement="right">
-                                    <template #title>
-                                        <span class="tooltip-text">hurry up!</span>
-                                    </template>
-                                    <QuestionCircleOutlined style="margin-left: 5px" />
-                                </a-tooltip>
-                            </template>
-                        </a-statistic-countdown>
-                        <a-typography-paragraph>任务平均耗时</a-typography-paragraph>
-                    </a-card>
+                    <question-circle 
+                        :value="deadline"
+                        title="流程平均耗时"
+                        tooltip-content="hurry up!"
+                        unit="小时"
+                        description="任务平均耗时："
+                    />
                 </a-col>
                 <a-col :span="8">
                     <a-card>col-8</a-card>
@@ -94,7 +87,7 @@ onUnmounted(() => {
                     <a-card>col-8</a-card>
                 </a-col>
             </a-row>
-            <a-row :gutter="[16, 16]" style="margin-top: 16px;">
+            <a-row :gutter="[16, 16]" style="margin-top: 8px;">
                 <a-col :span="24">
                     <a-card>
                         <div id="echarts_main" class="echarts_main"></div>
