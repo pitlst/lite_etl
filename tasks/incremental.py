@@ -11,6 +11,39 @@ from utils.connect import CONNECTER
 from tasks.base import task, task_connect_with
 from tasks.sync import extract_sql
 
+from sqlglot.optimizer.annotate_types import annotate_types
+from sqlglot.optimizer.canonicalize import canonicalize
+from sqlglot.optimizer.eliminate_ctes import eliminate_ctes
+from sqlglot.optimizer.eliminate_joins import eliminate_joins
+from sqlglot.optimizer.eliminate_subqueries import eliminate_subqueries
+from sqlglot.optimizer.merge_subqueries import merge_subqueries
+from sqlglot.optimizer.normalize import normalize
+from sqlglot.optimizer.optimize_joins import optimize_joins
+from sqlglot.optimizer.pushdown_predicates import pushdown_predicates
+from sqlglot.optimizer.pushdown_projections import pushdown_projections
+from sqlglot.optimizer.qualify import qualify
+from sqlglot.optimizer.simplify import simplify
+from sqlglot.optimizer.qualify_columns import quote_identifiers
+from sqlglot.optimizer.unnest_subqueries import unnest_subqueries
+
+SELF_RULES = (
+    qualify,
+    pushdown_projections,
+    normalize,
+    unnest_subqueries,
+    pushdown_predicates,
+    optimize_joins,
+    eliminate_subqueries,
+    merge_subqueries,
+    eliminate_joins,
+    eliminate_ctes,
+    quote_identifiers,
+    annotate_types,
+    canonicalize
+    # 关掉simplify优化是因为公司的oracle版本太低，优化完的sql会出现ORA-00920: 无效的关系运算符
+    # simplify
+)
+
 
 @dataclass
 class incremental_task_options:
@@ -98,21 +131,24 @@ class incremental_task(task):
     @staticmethod
     def where_add(input_ast: exp.Expression, id_name: exp.Column | exp.Alias, id_list: list[str], dialect: str | None = None) -> str:
         """对语法树添加筛选条件并生成"""
+        temp_sync_sql_ast = input_ast.copy()
         if len(id_list) != 0:
             in_condition = exp.In(
                 this=id_name.this if isinstance(id_name, exp.Alias) else id_name,
                 expressions=[exp.Literal.string(id_) for id_ in id_list]
             )
+            where_expr = temp_sync_sql_ast.find(exp.Where)
+            if where_expr and where_expr.expressions:
+                new_where = exp.And(this=where_expr.this, expression=in_condition)
+            else:
+                new_where = in_condition
+            temp_sync_sql_ast.set("where", exp.Where(this=new_where))
         else:
-            in_condition = exp.false()
-        temp_sync_sql_ast = input_ast.copy()
-        where_expr = temp_sync_sql_ast.find(exp.Where)
-        if where_expr and where_expr.expressions:
-            new_where = exp.And(this=where_expr.this, expression=in_condition)
-        else:
-            new_where = in_condition
-        temp_sync_sql_ast.set("where", exp.Where(this=new_where))
-        return optimize(temp_sync_sql_ast).sql(dialect=dialect)
+            temp_sync_sql_ast.set("where", exp.Where(this=condition("1=0")))
+        print(temp_sync_sql_ast)
+        print(temp_sync_sql_ast.sql(dialect=dialect))
+        print(optimize(temp_sync_sql_ast, dialect=dialect).sql(dialect=dialect))
+        return optimize(temp_sync_sql_ast, dialect=dialect, rules=SELF_RULES).sql(dialect=dialect)
 
     @staticmethod
     def get_table_struct(m_cursor: duckdb.DuckDBPyConnection, schema: str, table: str) -> pd.DataFrame:
@@ -180,8 +216,7 @@ class incremental_task(task):
             SELECT a."{self.id_name}"
             FROM "{self.options.temp_table_schema}"."{self.options.local_table_name}_id" AS a
             LEFT JOIN "{self.options.local_schema}."{self.options.local_table_name}_id" AS b ON a."{self.id_name}" = b."{self.id_name}"
-            WHERE NOT b."{self.id_name}" IS NULL
-            ''',
+            WHERE b."{self.id_name}" IS NULL ''',
             read="duckdb"
         )
         temp_where = query_sql.find(exp.Where) 

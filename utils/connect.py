@@ -72,5 +72,7 @@ class connecter:
         """关闭所有数据库连接"""
         for engine in self._sql_connect.values():
             engine.dispose()
+        self._logger.close()
+        self._local.close()
 
 CONNECTER = connecter()

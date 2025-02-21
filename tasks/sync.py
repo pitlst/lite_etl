@@ -84,7 +84,7 @@ class extract_sql(task):
             m_cursor.execute(
                 f'''
                 CREATE OR REPLACE TABLE "{self.target_connect_schema}"."{self.target_table_name}" AS
-                SELECT * FROM {temp_name} LIMIT 0
+                SELECT * FROM "{temp_name}" LIMIT 0
                 '''
             )
 
@@ -94,7 +94,7 @@ class extract_sql(task):
                 m_cursor.register(temp_name, temp_data)
                 m_cursor.execute(
                     f'''
-                    INSERT INTO "{self.target_connect_schema}"."{self.target_table_name}" SELECT * FROM {temp_name}
+                    INSERT INTO "{self.target_connect_schema}"."{self.target_table_name}" SELECT * FROM "{temp_name}"
                     '''
                 )
                 # 这里获取下一次填入的数据，如果为none会自动退出循环
