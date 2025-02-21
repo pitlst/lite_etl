@@ -26,24 +26,6 @@ from sqlglot.optimizer.simplify import simplify
 from sqlglot.optimizer.qualify_columns import quote_identifiers
 from sqlglot.optimizer.unnest_subqueries import unnest_subqueries
 
-SELF_RULES = (
-    qualify,
-    pushdown_projections,
-    normalize,
-    unnest_subqueries,
-    pushdown_predicates,
-    optimize_joins,
-    eliminate_subqueries,
-    merge_subqueries,
-    eliminate_joins,
-    eliminate_ctes,
-    quote_identifiers,
-    annotate_types,
-    canonicalize
-    # 关掉simplify优化是因为公司的oracle版本太低，优化完的sql会出现ORA-00920: 无效的关系运算符
-    # simplify
-)
-
 
 @dataclass
 class incremental_task_options:
@@ -82,15 +64,15 @@ class incremental_task(task):
     def ast_make(self) -> None:
         """将任务执行过程中所需要的sql语法树提前在初始化阶段生成好"""
         # 保存主表查询模板的语法树便于运行时替换
-        db_type = CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"]
+        self.db_type = CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"]
         with open(os.path.join(CONFIG.SELECT_PATH, self.options.sync_sql_path), "r", encoding="utf-8") as file:
-            self.sync_sql_ast = sqlglot.parse_one(file.read(), read=db_type)
-        self.sync_sql_str = optimize(self.sync_sql_ast, dialect=db_type).sql(dialect=db_type)
+            self.sync_sql_ast = sqlglot.parse_one(file.read(), read=self.db_type)
+        self.sync_sql_str = self.get_sql(self.sync_sql_ast, dialect=self.db_type)
         # 保存其他分录查询模板的语法树便于运行时替换
         self.other_entry_ast = {}
         for other_entry_key, other_entry_value in self.options.other_entry_sql_path.items():
             with open(os.path.join(CONFIG.SELECT_PATH, other_entry_value), "r", encoding="utf-8") as file:
-                self.other_entry_ast[other_entry_key] = sqlglot.parse_one(file.read(), read=db_type)
+                self.other_entry_ast[other_entry_key] = sqlglot.parse_one(file.read(), read=self.db_type)
 
         # 对于超过select列数的incremental_comparison_list会直接跳过
         self.incremental_select_colnums: list[exp.Column | exp.Alias] = []
@@ -108,7 +90,7 @@ class incremental_task(task):
         incremental_ast = exp.Select(expressions=[col.copy() for col in self.incremental_select_colnums])
         incremental_ast.set("from", incremental_from)
         incremental_ast.set("where", incremental_where)
-        self.incremental_sql_str = optimize(incremental_ast, dialect=db_type).sql(dialect=db_type)
+        self.incremental_sql_str = self.get_sql(incremental_ast, dialect=self.db_type)
 
     def update_local(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
         """获取当前本地id的缓存"""
@@ -128,8 +110,7 @@ class incremental_task(task):
             '''
         )
 
-    @staticmethod
-    def where_add(input_ast: exp.Expression, id_name: exp.Column | exp.Alias, id_list: list[str], dialect: str | None = None) -> str:
+    def where_add(self, input_ast: exp.Expression, id_name: exp.Column | exp.Alias, id_list: list[str], dialect: str | None = None) -> str:
         """对语法树添加筛选条件并生成"""
         temp_sync_sql_ast = input_ast.copy()
         if len(id_list) != 0:
@@ -145,10 +126,7 @@ class incremental_task(task):
             temp_sync_sql_ast.set("where", exp.Where(this=new_where))
         else:
             temp_sync_sql_ast.set("where", exp.Where(this=condition("1=0")))
-        print(temp_sync_sql_ast)
-        print(temp_sync_sql_ast.sql(dialect=dialect))
-        print(optimize(temp_sync_sql_ast, dialect=dialect).sql(dialect=dialect))
-        return optimize(temp_sync_sql_ast, dialect=dialect, rules=SELF_RULES).sql(dialect=dialect)
+        return self.get_sql(temp_sync_sql_ast, dialect=dialect)
 
     @staticmethod
     def get_table_struct(m_cursor: duckdb.DuckDBPyConnection, schema: str, table: str) -> pd.DataFrame:
@@ -160,6 +138,30 @@ class incremental_task(task):
             WHERE table_name = '{table}' AND table_schema = '{schema}'
             '''
         ).fetchdf()
+    
+    @staticmethod
+    def get_sql(input_ast: exp.Expression, dialect: str | None = None) -> str:
+        return optimize(
+            input_ast, 
+            dialect=dialect, 
+            rules=(
+                qualify,
+                pushdown_projections,
+                normalize,
+                unnest_subqueries,
+                pushdown_predicates,
+                optimize_joins,
+                eliminate_subqueries,
+                merge_subqueries,
+                eliminate_joins,
+                eliminate_ctes,
+                quote_identifiers,
+                annotate_types,
+                canonicalize
+                # 关掉simplify优化是因为公司的oracle版本太低，优化完的sql会出现ORA-00920: 无效的关系运算符
+                # simplify
+            )
+        ).sql(dialect=dialect)
 
     def replace_id(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
         """从缓存替换索引"""
@@ -223,7 +225,7 @@ class incremental_task(task):
         for other_name in self.local_id_struct['column_name'][1:]:
             temp_where = exp.Or(this=temp_where.this, expression=condition(f'''a.{other_name} <> b.{other_name}''')) # type: ignore
         query_sql.set("where", exp.Where(this=temp_where))
-        df_diff = m_cursor.execute(optimize(query_sql).sql(dialect="duckdb")).fetchdf()
+        df_diff = m_cursor.execute(self.get_sql(query_sql, dialect="duckdb")).fetchdf()
         sync_diff_sql_str = self.where_add(
             self.sync_sql_ast,
             self.incremental_select_colnums[0],
@@ -266,7 +268,7 @@ class incremental_task(task):
         for temp_ast_key, temp_ast_value in self.other_entry_ast.items():
             self.then(extract_sql(
                 name=self.options.name + "_" + temp_ast_key,
-                source_sql_or_path=optimize(temp_ast_value).sql(dialect=CONFIG.CONNECT_CONFIG[self.options.sync_source_connect_name]["type"]),
+                source_sql_or_path=self.get_sql(temp_ast_value, dialect=self.db_type),
                 target_table_name=self.options.local_table_name + "_" + temp_ast_key,
                 source_connect_name=self.options.sync_source_connect_name,
                 target_connect_schema=self.options.local_schema,
@@ -374,7 +376,7 @@ class incremental_task(task):
                 m_cursor.execute(
                     f'''
                     CREATE OR REPLACE TABLE "{self.options.local_schema}"."{self.options.local_table_name}_id" AS
-                    ''' + optimize(local_select_new).sql(dialect="duckdb")
+                    ''' + self.get_sql(local_select_new, dialect="duckdb")
                 )
             else:
                 self.log.info("删除多余的数据")

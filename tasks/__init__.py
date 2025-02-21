@@ -160,3 +160,6 @@ def task_run(input_tasks: list[task]) -> None:
             time.sleep(CONFIG.INTERVAL_DURATION)
             for task in input_tasks:
                 SCHEDULER.add(task)
+        else:
+            # 减少访问
+            time.sleep(1)
