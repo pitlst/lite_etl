@@ -68,6 +68,7 @@ class incremental_task(task):
         with open(os.path.join(CONFIG.SELECT_PATH, self.options.sync_sql_path), "r", encoding="utf-8") as file:
             self.sync_sql_ast = sqlglot.parse_one(file.read(), read=self.db_type)
         self.sync_sql_str = self.get_sql(self.sync_sql_ast, dialect=self.db_type)
+        
         # 保存其他分录查询模板的语法树便于运行时替换
         self.other_entry_ast = {}
         for other_entry_key, other_entry_value in self.options.other_entry_sql_path.items():
@@ -99,16 +100,8 @@ class incremental_task(task):
 
     def schema_make(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
         """确保对应的schema存在"""
-        m_cursor.execute(
-            f'''
-            CREATE SCHEMA IF NOT EXISTS "{self.options.local_schema}"
-            '''
-        )
-        m_cursor.execute(
-            f'''
-            CREATE SCHEMA IF NOT EXISTS "{self.options.temp_table_schema}"
-            '''
-        )
+        m_cursor.execute(f'''CREATE SCHEMA IF NOT EXISTS "{self.options.local_schema}"''')
+        m_cursor.execute(f'''CREATE SCHEMA IF NOT EXISTS "{self.options.temp_table_schema}"''')
 
     def where_add(self, input_ast: exp.Expression, id_name: exp.Column | exp.Alias, id_list: list[str], dialect: str | None = None) -> str:
         """对语法树添加筛选条件并生成"""
@@ -141,6 +134,7 @@ class incremental_task(task):
     
     @staticmethod
     def get_sql(input_ast: exp.Expression, dialect: str | None = None) -> str:
+        """通过优化器获取sql"""
         return optimize(
             input_ast, 
             dialect=dialect, 

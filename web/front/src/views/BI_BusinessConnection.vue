@@ -2,7 +2,7 @@
 import * as echarts from 'echarts';
 import { onMounted, onUnmounted, nextTick } from 'vue';
 import { useCounterStore } from '@/stores/counter';
-import QuestionCircle from '@/components/QuestionCircle.vue'
+import KeyMetricCard from '@/components/KeyMetricCard.vue'
 
 const deadline = 32;
 const store = useCounterStore();
@@ -72,7 +72,7 @@ onUnmounted(() => {
         <div class="container">
             <a-row :gutter="[16, 16]">
                 <a-col :span="8">
-                    <question-circle 
+                    <KeyMetricCard
                         :value="deadline"
                         title="流程平均耗时"
                         tooltip-content="hurry up!"

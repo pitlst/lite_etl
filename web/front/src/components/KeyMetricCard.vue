@@ -1,6 +1,6 @@
 <template>
     <a-card :bodyStyle="{ padding: '12px 24px' }">
-        <a-typography-title :level="5" style="margin-bottom: 0; letter-spacing: 0.5px">
+        <a-typography-title :level="5" style="margin-bottom: 0;">
             <span>{{ title }}</span>
             <a-tooltip color="white" placement="right">
                 <template #title>
@@ -11,9 +11,9 @@
         </a-typography-title>
         <div style="display: flex; align-items: baseline;">
             <a-statistic :value="value" :value-style="{ fontSize: '38px', fontWeight: 600, letterSpacing: '0.5px' }" />
-            <span style="font-size: 14px; letter-spacing: 0.3px; margin-left: 4px">{{ unit }}</span>
+            <span style="font-size: 14px; margin-left: 4px">{{ unit }}</span>
         </div>
-        <a-typography-paragraph type="secondary" style="margin-bottom: 0; letter-spacing: 0.3px">{{ description }}</a-typography-paragraph>
+        <a-typography-paragraph type="secondary" style="margin-bottom: 0;">{{ description }}</a-typography-paragraph>
     </a-card>
 </template>
 
