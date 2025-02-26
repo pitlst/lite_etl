@@ -15,4 +15,3 @@ cx_oracle
 pymongo
 clickhouse-connect
 clickhouse-sqlalchemy
-

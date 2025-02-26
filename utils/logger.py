@@ -1,34 +1,34 @@
 import logging
 import colorlog
+import datetime
 from utils.connect import CONNECTER
 
-class duckdb_handler(logging.Handler):
-    """将日志写到本地duckDB数据库的自定义handler"""
-    columns = ["log_time", "level", "msg"]
-    def __init__(self, name: str) -> None:
+class momgo_handler(logging.Handler):
+    def __init__(self, name) -> None:
         logging.Handler.__init__(self)
-        self.name = name
-        self.cursor = CONNECTER.get_logger()
-        # 指定创建时间为默认时间戳，id自动生成
-        self.cursor.execute(
-            f'''
-            CREATE TABLE IF NOT EXISTS "{self.name}" (
-                {self.columns[0]} TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-                {self.columns[1]} VARCHAR, 
-                {self.columns[2]} VARCHAR
-            )
-            '''
-        )
-        
-    def __del__(self):
-        self.cursor.close()
+        database = CONNECTER.local_mongo_db["logger"]
+        time_series_options = {
+            "timeField": "timestamp",
+            "metaField": "message"
+        }
+        if "sync" not in database.list_collection_names():
+            self.collection = database.create_collection(name, timeseries=time_series_options, expireAfterSeconds=604800)
+        else:
+            self.collection = database[name]
 
     def emit(self, record) -> None:
         try:
-            temp_msg = self.format(record).split(":")
+            msg = self.format(record)
+            temp_msg = msg.split(":")
             level = temp_msg[0]
             msg = ":".join(temp_msg[1:])
-            self.cursor.execute(f"INSERT INTO \"{self.name}\" ({self.columns[1]}, {self.columns[2]}) VALUES (?, ?)", [level, msg])
+            self.collection.insert_one({
+                "timestamp": datetime.datetime.now(),
+                "message": {
+                    "等级": level,
+                    "消息": msg
+                }
+            })
         except Exception:
             self.handleError(record)
 
@@ -52,7 +52,7 @@ def make_logger(logger_name: str)-> logging.Logger:
             datefmt='## %Y-%m-%d %H:%M:%S'
         ))
     temp_log.addHandler(console)
-    mongoio = duckdb_handler(logger_name)
+    mongoio = momgo_handler(logger_name)
     mongoio.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(levelname)s:%(message)s')
     mongoio.setFormatter(formatter)

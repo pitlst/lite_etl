@@ -4,7 +4,6 @@ import uvicorn
 from utils.config import CONFIG
 from utils.connect import CONNECTER
 from utils.scheduler import SCHEDULER
-from web.back.app import app
 from tasks import task_init, task_run
 
 def signal_handler(signum, frame):

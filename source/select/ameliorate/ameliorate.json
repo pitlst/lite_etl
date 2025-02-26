@@ -1,9 +1,0 @@
-{
-    "attention": {
-        "id": "f.fk_crrc_proposal_no",
-        "columns": [
-            "f.fk_crrc_proposal_status"
-        ]
-    },
-    "entry": {}
-}
