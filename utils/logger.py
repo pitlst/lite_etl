@@ -1,12 +1,12 @@
 import logging
 import colorlog
 import datetime
-from utils.connect import CONNECTER
+from utils.connect import CONNECT
 
 class momgo_handler(logging.Handler):
     def __init__(self, name) -> None:
         logging.Handler.__init__(self)
-        database = CONNECTER.local_mongo_db["logger"]
+        database = CONNECT.NOSQL["本地mongo存储"]["logger"]
         time_series_options = {
             "timeField": "timestamp",
             "metaField": "message"

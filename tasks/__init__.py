@@ -1,8 +1,9 @@
 import time
 from utils.config import CONFIG
-from tasks.base import task
 from utils.scheduler import SCHEDULER
-from tasks.sync import extract_sql, sync_sql, extract_nosql, load_table
+from utils import get_sql
+from tasks.base import task
+from tasks.sync import sync_sql, sync_nosql
 from tasks.incremental import incremental_task, incremental_task_options
 
 def task_init() -> list[task]:
@@ -38,11 +39,10 @@ def task_init() -> list[task]:
     tasks_group.append(incremental_task(
         incremental_task_options(
             name = "唐渝用-调试项点同步",
-            sync_sql_path = "tangyu/alignment_file.sql",
-            sync_source_connect_name = "MES",
-            local_table_name = "alignment_file",
-            incremental_comparison_list = [0, 1], 
-            is_delete=False
+            sync_sql = get_sql("tangyu/alignment_file.sql"),
+            sync_connect_name = "MES",
+            sync_incremental_comparison = [0, 1],
+            local_table_name = "alignment_file"
         )   
     ))
     # 业联系统任务同步

@@ -6,7 +6,8 @@ numpy
 colorlog
 toml
 
-sqlglot[rs]
+sqlparse
+sqlglot
 peewee
 
 pyodbc

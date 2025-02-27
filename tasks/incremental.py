@@ -1,45 +1,26 @@
 import os
-import duckdb
-import sqlalchemy
+import sqlalchemy as sl
 import pandas as pd
-import sqlglot
-from sqlglot.optimizer import optimize
-from sqlglot import exp, condition
 from dataclasses import dataclass, field
 from utils.config import CONFIG
-from utils.connect import CONNECTER
+from utils.connect import CONNECT
 from tasks.base import task, task_connect_with
-from tasks.sync import extract_sql
-
-from sqlglot.optimizer.annotate_types import annotate_types
-from sqlglot.optimizer.canonicalize import canonicalize
-from sqlglot.optimizer.eliminate_ctes import eliminate_ctes
-from sqlglot.optimizer.eliminate_joins import eliminate_joins
-from sqlglot.optimizer.eliminate_subqueries import eliminate_subqueries
-from sqlglot.optimizer.merge_subqueries import merge_subqueries
-from sqlglot.optimizer.normalize import normalize
-from sqlglot.optimizer.optimize_joins import optimize_joins
-from sqlglot.optimizer.pushdown_predicates import pushdown_predicates
-from sqlglot.optimizer.pushdown_projections import pushdown_projections
-from sqlglot.optimizer.qualify import qualify
-from sqlglot.optimizer.simplify import simplify
-from sqlglot.optimizer.qualify_columns import quote_identifiers
-from sqlglot.optimizer.unnest_subqueries import unnest_subqueries
+from tasks.sync import sync_sql
 
 
 @dataclass
 class incremental_task_options:
     """增量同步的函数初始化参数类"""
     name: str
-    sync_sql_path: str
-    sync_source_connect_name: str
+    sync_sql: str
+    sync_connect_name: str
     local_table_name: str
     # 用于指定查询模板中哪些列是用于比较数据是否变更的，默认指定第一列为id
-    incremental_comparison_list: list[int] = field(default_factory=lambda: [0])
+    sync_incremental_comparison: list[int] = field(default_factory=lambda: [0])
     # 用于指定相关分录的查询模板
-    other_entry_sql_path: dict[str, str] = field(default_factory=dict)
-    local_schema: str = "ods"
-    temp_table_schema: str = "m_temp"
+    sync_entry_sql: dict[str, str] = field(default_factory=dict)
+    local_connect_name: str = "本地clickhouse"
+    local_database: str = "ods"
     # 如果单次新增或修改数超过chunksize，则会退化为全量同步
     chunksize: int = 10000
     # 对于查询中没有的数据是否删除
@@ -50,17 +31,29 @@ class incremental_task(task):
     """增量同步，将增量同步相同的部分抽象出来不做多次编写"""
 
     def __init__(self, input_options: incremental_task_options) -> None:
-        super().__init__(input_options.name)
         self.options = input_options
-        # 读取并生成sql的语法树
-        self.ast_make()
-        with CONNECTER.get_local() as m_cursor:
-            # 确保本地schema存在
-            self.schema_make(m_cursor)
-            # 获取当前本地id的缓存
-            self.update_local(m_cursor)
-        self.source_client = CONNECTER.get_sql(self.options.sync_source_connect_name)
+        super().__init__(self.options.name)
+        self.source_client = CONNECT.SQL[self.options.sync_connect_name]
+        self.local_client = CONNECT.SQL[self.options.local_connect_name]
+        
+        with task_connect_with(self.local_client, self.log) as connect:
+            # 确保对应的schema存在
+            connect.execute(sl.text(f'''CREATE DATABASE IF NOT EXISTS "{self.options.local_database}"'''))
+            # 查询对应id的缓存是否存在
+            self.exists_table_cache = connect.execute(sl.text(f'''EXISTS TABLE "{self.options.local_database}"."{self.options.local_table_name}_id"'''))
+            if self.exists_table_cache:
+                # 获取本地id缓存  
+                self.df_temp_id = pd.read_sql_table(self.options.local_table_name  + "_id", connect)
+                # 获取id列的名称
+                self.id_name = self.df_temp_id.columns[0]
+                
+            else:
+                # 转换为全量同步
+                self.trans_sync()
 
+        # 生成sql
+        self.ast_make()
+        
     def ast_make(self) -> None:
         """将任务执行过程中所需要的sql语法树提前在初始化阶段生成好"""
         # 保存主表查询模板的语法树便于运行时替换
@@ -93,15 +86,6 @@ class incremental_task(task):
         incremental_ast.set("where", incremental_where)
         self.incremental_sql_str = self.get_sql(incremental_ast, dialect=self.db_type)
 
-    def update_local(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
-        """获取当前本地id的缓存"""
-        self.local_id_struct = self.get_table_struct(m_cursor, self.options.local_schema, self.options.local_table_name + "_id")
-        self.id_name = str(self.local_id_struct['column_name'][0]) if len(self.local_id_struct) != 0 else None
-
-    def schema_make(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
-        """确保对应的schema存在"""
-        m_cursor.execute(f'''CREATE SCHEMA IF NOT EXISTS "{self.options.local_schema}"''')
-        m_cursor.execute(f'''CREATE SCHEMA IF NOT EXISTS "{self.options.temp_table_schema}"''')
 
     def where_add(self, input_ast: exp.Expression, id_name: exp.Column | exp.Alias, id_list: list[str], dialect: str | None = None) -> str:
         """对语法树添加筛选条件并生成"""
@@ -132,30 +116,6 @@ class incremental_task(task):
             '''
         ).fetchdf()
     
-    @staticmethod
-    def get_sql(input_ast: exp.Expression, dialect: str | None = None) -> str:
-        """通过优化器获取sql"""
-        return optimize(
-            input_ast, 
-            dialect=dialect, 
-            rules=(
-                qualify,
-                pushdown_projections,
-                normalize,
-                unnest_subqueries,
-                pushdown_predicates,
-                optimize_joins,
-                eliminate_subqueries,
-                merge_subqueries,
-                eliminate_joins,
-                eliminate_ctes,
-                quote_identifiers,
-                annotate_types,
-                canonicalize
-                # 关掉simplify优化是因为公司的oracle版本太低，优化完的sql会出现ORA-00920: 无效的关系运算符
-                # simplify
-            )
-        ).sql(dialect=dialect)
 
     def replace_id(self, m_cursor: duckdb.DuckDBPyConnection) -> None:
         """从缓存替换索引"""
